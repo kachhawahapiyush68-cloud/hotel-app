@@ -5,10 +5,10 @@ import { loginApi, LoginResponse } from '../api/authApi';
 export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'EMPLOYEE' | string;
 
 export type User = {
-  id: number;
-  companyId: number;
+  userid: number;
+  companyid: number;
   username: string;
-  fullName?: string | null;
+  fullname?: string | null;
   role: UserRole;
 };
 
@@ -17,21 +17,24 @@ type AuthState = {
   token: string | null;
   loading: boolean;
   error: string | null;
+  selectedCompanyId?: number;
   login: (payload: {
     username: string;
     password: string;
     hotelCode?: string;
   }) => Promise<void>;
   logout: () => void;
+  setSelectedCompanyId: (id: number | undefined) => void;
 };
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>(set => ({
   user: null,
   token: null,
   loading: false,
   error: null,
+  selectedCompanyId: undefined,
 
-  login: async (payload) => {
+  login: async payload => {
     try {
       set({ loading: true, error: null });
       const data: LoginResponse = await loginApi(payload);
@@ -39,14 +42,15 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({
         token: data.token,
         user: {
-          id: data.user.userid,
-          companyId: data.user.companyid,
+          userid: data.user.userid,
+          companyid: data.user.companyid,
           username: data.user.username,
-          fullName: data.user.fullname ?? null,
+          fullname: data.user.fullname ?? null,
           role: data.user.role,
         },
         loading: false,
         error: null,
+        selectedCompanyId: undefined,
       });
     } catch (err: any) {
       const msg =
@@ -56,5 +60,14 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  logout: () => set({ user: null, token: null, error: null, loading: false }),
+  logout: () =>
+    set({
+      user: null,
+      token: null,
+      error: null,
+      loading: false,
+      selectedCompanyId: undefined,
+    }),
+
+  setSelectedCompanyId: id => set({ selectedCompanyId: id }),
 }));

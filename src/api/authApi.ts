@@ -41,6 +41,9 @@ export async function registerApi(payload: {
   companyId: number;
   role?: string;
 }): Promise<RegisterResponse> {
-  const res = await httpClient.post<RegisterResponse>('/auth/register', payload);
+  const res = await httpClient.post<RegisterResponse>(
+    '/auth/register',
+    payload,
+  );
   return res.data;
 }

@@ -68,6 +68,13 @@ export default function RegisterScreen({ navigation }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.cardWrapper}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#111827" />
+        </TouchableOpacity>
+
         <View style={styles.logoSection}>
           <Text style={styles.loginTitle}>Register User</Text>
         </View>
@@ -147,7 +154,7 @@ export default function RegisterScreen({ navigation }: Props) {
               onChangeText={setPassword}
               secureTextEntry={secure}
             />
-            <TouchableOpacity onPress={() => setSecure((v) => !v)}>
+            <TouchableOpacity onPress={() => setSecure(v => !v)}>
               <Ionicons
                 name={secure ? 'eye-off-outline' : 'eye-outline'}
                 size={20}
@@ -157,9 +164,7 @@ export default function RegisterScreen({ navigation }: Props) {
           </View>
         </View>
 
-        {localError && (
-          <Text style={styles.errorText}>{localError}</Text>
-        )}
+        {localError && <Text style={styles.errorText}>{localError}</Text>}
 
         <TouchableOpacity
           style={styles.loginButton}
@@ -177,12 +182,20 @@ export default function RegisterScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  cardWrapper: { paddingHorizontal: 24, paddingTop: 60 },
+  cardWrapper: { paddingHorizontal: 24, paddingTop: 40 },
+  backButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   logoSection: { alignItems: 'center', marginBottom: 24 },
   loginTitle: { fontSize: 22, fontWeight: '700', color: '#111827' },
   inputCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 4,
     shadowColor: '#000',

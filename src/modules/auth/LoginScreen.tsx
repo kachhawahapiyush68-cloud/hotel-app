@@ -41,13 +41,23 @@ export default function LoginScreen({ navigation }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.cardWrapper}>
+        {/* Back arrow like the screenshot’s top-left */}
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#111827" />
+        </TouchableOpacity>
+
+        {/* Logo + Login title */}
         <View style={styles.logoSection}>
           <View style={styles.logoCircle}>
-            <Ionicons name="cloud-outline" size={32} color="#1D4ED8" />
+            <Ionicons name="cloud-outline" size={36} color="#1D4ED8" />
           </View>
           <Text style={styles.loginTitle}>Login</Text>
         </View>
 
+        {/* White card with 3 inputs */}
         <View style={styles.inputCard}>
           <View style={styles.inputRow}>
             <Ionicons name="person-outline" size={20} color="#9CA3AF" />
@@ -73,7 +83,7 @@ export default function LoginScreen({ navigation }: Props) {
               onChangeText={setPassword}
               secureTextEntry={secure}
             />
-            <TouchableOpacity onPress={() => setSecure((v) => !v)}>
+            <TouchableOpacity onPress={() => setSecure(v => !v)}>
               <Ionicons
                 name={secure ? 'eye-off-outline' : 'eye-outline'}
                 size={20}
@@ -101,6 +111,7 @@ export default function LoginScreen({ navigation }: Props) {
           <Text style={styles.errorText}>{localError || error}</Text>
         )}
 
+        {/* Blue Login button – full width */}
         <TouchableOpacity
           style={styles.loginButton}
           onPress={onSubmit}
@@ -111,6 +122,7 @@ export default function LoginScreen({ navigation }: Props) {
           </Text>
         </TouchableOpacity>
 
+        {/* Free Trial box */}
         <TouchableOpacity
           style={styles.trialBox}
           onPress={() => navigation.navigate('Register')}
@@ -122,7 +134,11 @@ export default function LoginScreen({ navigation }: Props) {
         </TouchableOpacity>
       </View>
 
+      {/* Bottom illustration and text area */}
       <View style={styles.bottomArea}>
+        {/* Optional: put your illustration image here if you have one
+            <Image source={require('../../../assets/login-city.png')} style={styles.illustration} />
+        */}
         <Text style={styles.footerText}>Powered by Yanolja Cloud Solution</Text>
         <Text style={styles.footerTextSmall}>{API_BASE_URL}</Text>
       </View>
@@ -132,8 +148,19 @@ export default function LoginScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  cardWrapper: { paddingHorizontal: 24, paddingTop: 60 },
-  logoSection: { alignItems: 'center', marginBottom: 32 },
+  cardWrapper: {
+    paddingHorizontal: 24,
+    paddingTop: 40,
+  },
+  backButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  logoSection: { alignItems: 'center', marginTop: 8, marginBottom: 32 },
   logoCircle: {
     width: 80,
     height: 80,
@@ -146,7 +173,7 @@ const styles = StyleSheet.create({
   loginTitle: { fontSize: 22, fontWeight: '700', color: '#111827' },
   inputCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 4,
     shadowColor: '#000',
@@ -155,7 +182,11 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  inputRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
   textInput: {
     flex: 1,
     marginLeft: 12,
@@ -191,4 +222,10 @@ const styles = StyleSheet.create({
   },
   footerText: { fontSize: 12, color: '#6B7280', marginTop: 4 },
   footerTextSmall: { fontSize: 10, color: '#9CA3AF', marginTop: 2 },
+  illustration: {
+    width: '80%',
+    height: 140,
+    resizeMode: 'contain',
+    marginBottom: 8,
+  },
 });
