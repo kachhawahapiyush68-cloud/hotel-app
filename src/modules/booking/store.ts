@@ -1,10 +1,10 @@
-// src/modules/booking/store.ts
 import { create } from "zustand";
 import {
   bookingApi,
   Booking,
   BookingCreateInput,
   BookingUpdateInput,
+  CheckInResponse,
 } from "../../api/bookingApi";
 import { useAuthStore } from "../../store/authStore";
 import { normalizeRole } from "../../shared/utils/role";
@@ -14,15 +14,27 @@ type BookingState = {
   loading: boolean;
   error: string | null;
 
+  arrivals: Booking[];
+
+  currentBooking: Booking | null;
+  currentFolio: { folio_id: number; folio_no: string } | null;
+
   fetch: () => Promise<void>;
   create: (input: BookingCreateInput) => Promise<Booking | null>;
   update: (id: number, input: BookingUpdateInput) => Promise<Booking | null>;
+
+  fetchTodayArrivals: (date?: string) => Promise<void>;
+  setCurrentFromCheckIn: (booking: Booking, resp: CheckInResponse) => void;
 };
 
 export const useBookingStore = create<BookingState>((set, get) => ({
   items: [],
   loading: false,
   error: null,
+
+  arrivals: [],
+  currentBooking: null,
+  currentFolio: null,
 
   async fetch() {
     try {
@@ -84,5 +96,28 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       set({ error: e?.message || "Failed to update booking" });
       return null;
     }
+  },
+
+  async fetchTodayArrivals(date?: string) {
+    try {
+      set({ loading: true, error: null });
+      const data = await bookingApi.listTodayArrivals(date);
+      set({ arrivals: data, loading: false });
+    } catch (e: any) {
+      set({
+        loading: false,
+        error: e?.message || "Failed to load arrivals",
+      });
+    }
+  },
+
+  setCurrentFromCheckIn(booking, resp) {
+    set({
+      currentBooking: booking,
+      currentFolio: {
+        folio_id: resp.folio_id,
+        folio_no: resp.folio_no,
+      },
+    });
   },
 }));

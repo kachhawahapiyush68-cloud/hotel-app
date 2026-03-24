@@ -1,4 +1,3 @@
-// src/api/bookingApi.ts
 import { httpClient } from "./httpClient";
 
 export type BookingStatus =
@@ -33,8 +32,8 @@ export interface BookingCreateInput {
   reservation_no?: string | null;
   guest_id: number;
   room_id: number;
-  check_in_datetime: string;   // MySQL datetime string
-  check_out_datetime: string;  // MySQL datetime string
+  check_in_datetime: string;
+  check_out_datetime: string;
   nights?: number;
   num_adult?: number;
   num_child?: number;
@@ -53,6 +52,12 @@ export interface BookingUpdateInput {
   num_adult?: number;
   num_child?: number;
   status?: BookingStatus;
+}
+
+export interface CheckInResponse {
+  booking_id: number;
+  folio_id: number;
+  folio_no: string;
 }
 
 export const bookingApi = {
@@ -79,5 +84,21 @@ export const bookingApi = {
 
   async remove(id: number): Promise<void> {
     await httpClient.delete(`/bookings/${id}`);
+  },
+
+  async listTodayArrivals(date?: string): Promise<Booking[]> {
+    const params = date ? { date } : undefined;
+    const res = await httpClient.get<Booking[]>("/bookings/arrivals/today", {
+      params,
+    });
+    return res.data;
+  },
+
+  async checkIn(id: number, room_id: number): Promise<CheckInResponse> {
+    const res = await httpClient.post<CheckInResponse>(
+      `/bookings/${id}/checkin`,
+      { room_id }
+    );
+    return res.data;
   },
 };

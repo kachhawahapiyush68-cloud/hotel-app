@@ -1,26 +1,42 @@
-// src/modules/booking/ArrivalListScreen.tsx
 import React, { useEffect } from "react";
-import { View, FlatList, Text, RefreshControl } from "react-native";
+import { View, FlatList, RefreshControl, Alert } from "react-native";
 import { useBookingStore } from "./store";
 import { useThemeStore } from "../../store/themeStore";
-import Card from "../../shared/components/Card";
 import Loader from "../../shared/components/Loader";
-import { formatDate, isSameDate } from "../../shared/utils/date";
+import { toIsoDate } from "../../shared/utils/date";
+import { bookingApi, Booking } from "../../api/bookingApi";
+import ArrivalCard from "./components/ArrivalCard";
 
 const ArrivalListScreen: React.FC = () => {
   const { theme } = useThemeStore();
-  const { items, loading, fetch } = useBookingStore();
+  const {
+    arrivals,
+    loading,
+    fetchTodayArrivals,
+    setCurrentFromCheckIn,
+  } = useBookingStore();
 
   useEffect(() => {
-    fetch();
-  }, [fetch]);
+    const todayIso = toIsoDate(new Date());
+    fetchTodayArrivals(todayIso);
+  }, [fetchTodayArrivals]);
 
-  const today = new Date();
-  const arrivals = items.filter((b) =>
-    isSameDate(new Date(b.check_in_datetime), today)
-  );
+  const handleRefresh = () => {
+    const todayIso = toIsoDate(new Date());
+    fetchTodayArrivals(todayIso);
+  };
 
-  if (loading && items.length === 0) {
+  const handleCheckIn = async (booking: Booking, roomId: number) => {
+    try {
+      const resp = await bookingApi.checkIn(booking.booking_id, roomId);
+      setCurrentFromCheckIn(booking, resp);
+      Alert.alert("Checked in", `Folio: ${resp.folio_no}`);
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Failed to check in");
+    }
+  };
+
+  if (loading && arrivals.length === 0) {
     return <Loader />;
   }
 
@@ -30,19 +46,11 @@ const ArrivalListScreen: React.FC = () => {
         data={arrivals}
         keyExtractor={(item) => String(item.booking_id)}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={fetch} />
+          <RefreshControl refreshing={loading} onRefresh={handleRefresh} />
         }
         contentContainerStyle={{ padding: 12 }}
         renderItem={({ item }) => (
-          <Card
-            style={{ marginBottom: 10 }}
-            header={`Room ${item.room_id}`}
-            subtitle={`Arriving ${formatDate(item.check_in_datetime)}`}
-          >
-            <Text style={{ color: theme.colors.textSecondary, fontSize: 12 }}>
-              Guest ID: {item.guest_id}
-            </Text>
-          </Card>
+          <ArrivalCard booking={item} onCheckIn={handleCheckIn} />
         )}
       />
     </View>

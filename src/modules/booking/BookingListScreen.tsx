@@ -1,4 +1,3 @@
-// src/modules/booking/BookingListScreen.tsx
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -91,11 +90,20 @@ const BookingListScreen: React.FC = () => {
         >
           Bookings
         </Text>
-        <AppButton
-          title="+ Booking"
-          size="small"
-          onPress={() => navigation.navigate("QuickReservation")}
-        />
+
+        <View style={{ flexDirection: "row" }}>
+          <AppButton
+            title="Arrivals"
+            size="small"
+            onPress={() => navigation.navigate("ArrivalList")}
+            style={{ marginRight: 8 }}
+          />
+          <AppButton
+            title="+ Booking"
+            size="small"
+            onPress={() => navigation.navigate("QuickReservation")}
+          />
+        </View>
       </View>
 
       <FlatList
@@ -125,11 +133,10 @@ const BookingListScreen: React.FC = () => {
             <Card
               style={{
                 marginBottom: 12,
-                // full width for 1 column; half width minus margin for 2 columns
                 width:
                   numColumns === 1
                     ? "100%"
-                    : (width - 12 * 2 - 8) / 2, // padding*2 + gap
+                    : (width - 12 * 2 - 8) / 2,
                 marginRight: numColumns === 2 && isLeft ? 8 : 0,
                 borderRadius: 16,
                 overflow: "hidden",

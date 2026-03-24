@@ -1,4 +1,3 @@
-// src/navigation/MainTabs.tsx
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import Ionicons from "react-native-vector-icons/Ionicons";
@@ -9,6 +8,7 @@ import MastersScreen from "../modules/masters/MastersScreen";
 import KotListScreen from "../modules/kot/KotListScreen";
 import BillListScreen from "../modules/bill/BillListScreen";
 import BookingListScreen from "../modules/booking/BookingListScreen";
+import StayViewScreen from "../modules/stayView/StayViewScreen";
 import { useThemeStore } from "../store/themeStore";
 import { useAuthStore } from "../store/authStore";
 import { normalizeRole } from "../shared/utils/role";
@@ -19,6 +19,7 @@ export type MainTabParamList = {
   Bookings: undefined;
   KOT: undefined;
   Bills: undefined;
+  StayView: undefined;
 };
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -73,6 +74,8 @@ const MainTabs: React.FC = () => {
             ? "Bookings"
             : route.name === "KOT"
             ? "Kitchen Orders"
+            : route.name === "StayView"
+            ? "Stay View"
             : "Bills"
         ),
         tabBarStyle: {
@@ -89,6 +92,7 @@ const MainTabs: React.FC = () => {
           else if (route.name === "Bookings") icon = "bed-outline";
           else if (route.name === "KOT") icon = "restaurant-outline";
           else if (route.name === "Bills") icon = "receipt-outline";
+          else if (route.name === "StayView") icon = "person-circle-outline";
 
           return <Ionicons name={icon as any} size={size} color={color} />;
         },
@@ -103,6 +107,7 @@ const MainTabs: React.FC = () => {
       <Tab.Screen name="Bookings" component={BookingListScreen} />
       <Tab.Screen name="KOT" component={KotListScreen} />
       <Tab.Screen name="Bills" component={BillListScreen} />
+      <Tab.Screen name="StayView" component={StayViewScreen} />
     </Tab.Navigator>
   );
 };

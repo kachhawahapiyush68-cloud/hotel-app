@@ -1,4 +1,3 @@
-// src/modules/booking/QuickReservationScreen.tsx
 import React, { useEffect, useState } from "react";
 import { View, Alert } from "react-native";
 import { useThemeStore } from "../../store/themeStore";
@@ -35,6 +34,7 @@ const QuickReservationScreen: React.FC = () => {
           nights: b.nights,
           num_adult: b.num_adult,
           num_child: b.num_child,
+          status: b.status,
         });
       } finally {
         setLoading(false);
@@ -49,7 +49,10 @@ const QuickReservationScreen: React.FC = () => {
       if (bookingId) {
         await update(bookingId, values);
       } else {
-        await create(values);
+        await create({
+          ...values,
+          status: "Confirmed",
+        });
       }
       setSubmitting(false);
       Alert.alert("Success", "Booking saved");

@@ -1,4 +1,3 @@
-// src/navigation/RootNavigator.tsx
 import React from "react";
 import {
   NavigationContainer,
@@ -85,7 +84,7 @@ const RootNavigator: React.FC = () => {
             <Stack.Screen name="RoomList" component={RoomListScreen} />
             <Stack.Screen name="ProductList" component={ProductListScreen} />
             <Stack.Screen name="GuestList" component={GuestListScreen} />
-            {/* LedgerList and TaxGroupList are commented for now */}
+            {/* LedgerList and TaxGroupList can be added later */}
 
             <Stack.Screen name="UserList" component={UserListScreen} />
             <Stack.Screen name="UserEdit" component={UserEditScreen} />
