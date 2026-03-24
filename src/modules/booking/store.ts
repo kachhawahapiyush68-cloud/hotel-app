@@ -101,8 +101,24 @@ export const useBookingStore = create<BookingState>((set, get) => ({
   async fetchTodayArrivals(date?: string) {
     try {
       set({ loading: true, error: null });
-      const data = await bookingApi.listTodayArrivals(date);
-      set({ arrivals: data, loading: false });
+
+      const auth = useAuthStore.getState();
+      const user = auth.user;
+      const roleUpper = normalizeRole(user?.role);
+      const companyIdParam =
+        roleUpper === "SUPER_ADMIN"
+          ? auth.selectedCompanyId
+          : user?.companyid;
+
+      const all = await bookingApi.list(companyIdParam);
+      const target = date ?? new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+
+      const filtered = all.filter((b) => {
+        const d = b.check_in_datetime.slice(0, 10);
+        return d === target;
+      });
+
+      set({ arrivals: filtered, loading: false });
     } catch (e: any) {
       set({
         loading: false,

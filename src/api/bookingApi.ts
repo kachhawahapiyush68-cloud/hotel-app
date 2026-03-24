@@ -86,14 +86,6 @@ export const bookingApi = {
     await httpClient.delete(`/bookings/${id}`);
   },
 
-  async listTodayArrivals(date?: string): Promise<Booking[]> {
-    const params = date ? { date } : undefined;
-    const res = await httpClient.get<Booking[]>("/bookings/arrivals/today", {
-      params,
-    });
-    return res.data;
-  },
-
   async checkIn(id: number, room_id: number): Promise<CheckInResponse> {
     const res = await httpClient.post<CheckInResponse>(
       `/bookings/${id}/checkin`,

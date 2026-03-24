@@ -18,11 +18,17 @@ const ArrivalCard: React.FC<Props> = ({ booking, onCheckIn }) => {
   );
 
   const handleCheckInPress = () => {
-    if (!selectedRoomId) {
-      Alert.alert("Select room", "Please select a room before check‑in.");
+    const roomToUse = selectedRoomId || booking.room_id;
+
+    if (!roomToUse || roomToUse === 0) {
+      Alert.alert(
+        "No room selected",
+        "Please assign a room to this booking (use the picker above) before check‑in."
+      );
       return;
     }
-    onCheckIn(booking, selectedRoomId);
+
+    onCheckIn(booking, roomToUse);
   };
 
   return (
