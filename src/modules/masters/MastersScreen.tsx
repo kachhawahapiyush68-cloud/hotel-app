@@ -1,8 +1,16 @@
 // src/modules/masters/MastersScreen.tsx
-import React from 'react';
-import { View, TouchableOpacity, StyleSheet, Text } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { useThemeStore } from '../../store/themeStore';
+import React from "react";
+import {
+  View,
+  TouchableOpacity,
+  StyleSheet,
+  Text,
+  ScrollView,
+  Dimensions,
+} from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import Ionicons from "react-native-vector-icons/Ionicons";
+import { useThemeStore } from "../../store/themeStore";
 
 type ItemProps = {
   icon: string;
@@ -11,30 +19,45 @@ type ItemProps = {
   onPress: () => void;
 };
 
-const MasterItem: React.FC<ItemProps> = ({ icon, title, subtitle, onPress }) => {
+const MasterItem: React.FC<ItemProps> = ({
+  icon,
+  title,
+  subtitle,
+  onPress,
+}) => {
   const { theme } = useThemeStore();
+  const colors = theme.colors;
+
   return (
     <TouchableOpacity
       style={[
         styles.item,
         {
-          borderColor: theme.colors.border,
-          backgroundColor: theme.colors.surface,
+          borderColor: colors.border,
+          backgroundColor: colors.surface,
         },
       ]}
       onPress={onPress}
+      activeOpacity={0.85}
     >
       <View
         style={[
           styles.iconCircle,
-          { backgroundColor: theme.colors.primarySoft },
+          { backgroundColor: colors.primarySoft },
         ]}
       >
-        <Text style={[styles.iconText, { color: theme.colors.primary }]}>{icon}</Text>
+        <Ionicons name={icon as any} size={22} color={colors.primary} />
       </View>
       <View style={styles.textBlock}>
-        <Text style={[styles.itemTitle, { color: theme.colors.text }]}>{title}</Text>
-        <Text style={[styles.itemSubtitle, { color: theme.colors.textSecondary }]}>
+        <Text style={[styles.itemTitle, { color: colors.text }]}>
+          {title}
+        </Text>
+        <Text
+          style={[
+            styles.itemSubtitle,
+            { color: colors.textSecondary },
+          ]}
+        >
           {subtitle}
         </Text>
       </View>
@@ -45,66 +68,80 @@ const MasterItem: React.FC<ItemProps> = ({ icon, title, subtitle, onPress }) => 
 export default function MastersScreen() {
   const navigation = useNavigation<any>();
   const { theme } = useThemeStore();
+  const colors = theme.colors;
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Text style={[styles.header, { color: theme.colors.text }]}>Masters</Text>
-
-      <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Text style={[styles.header, { color: colors.text }]}>
         Masters
       </Text>
 
-      <MasterItem
-        icon="C"
-        title="Companies"
-        subtitle="Manage hotel/company profiles"
-        onPress={() => navigation.navigate('CompanyList')}
-      />
-      <MasterItem
-        icon="C"
-        title="Categories"
-        subtitle="Room, POS and other groups"
-        onPress={() => navigation.navigate('CategoryList')}
-      />
-      <MasterItem
-        icon="R"
-        title="Rooms"
-        subtitle="Room types, numbers and status"
-        onPress={() => navigation.navigate('RoomList')}
-      />
-      <MasterItem
-        icon="P"
-        title="Products"
-        subtitle="Extra services and items"
-        onPress={() => navigation.navigate('ProductList')}
-      />
-      <MasterItem
-        icon="G"
-        title="Guests"
-        subtitle="Guest profiles and contacts"
-        onPress={() => navigation.navigate('GuestList')}
-      />
-      <MasterItem
-        icon="L"
-        title="Ledgers"
-        subtitle="Accounts and balances"
-        onPress={() => navigation.navigate('LedgerList')}
-      />
-      <MasterItem
-        icon="T"
-        title="Tax Groups"
-        subtitle="Tax configuration"
-        onPress={() => navigation.navigate('TaxGroupList')}
-      />
-      <MasterItem
-        icon="U"
-        title="Users"
-        subtitle="Admin & employee accounts"
-        onPress={() => navigation.navigate('UserList')}
-      />
+      <Text
+        style={[styles.sectionTitle, { color: colors.textSecondary }]}
+      >
+        Configuration & master data
+      </Text>
+
+      <ScrollView
+        contentContainerStyle={styles.gridContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        <MasterItem
+          icon="business-outline"
+          title="Companies"
+          subtitle="Manage hotel/company profiles"
+          onPress={() => navigation.navigate("CompanyList")}
+        />
+        <MasterItem
+          icon="albums-outline"
+          title="Categories"
+          subtitle="Room, POS and other groups"
+          onPress={() => navigation.navigate("CategoryList")}
+        />
+        <MasterItem
+          icon="bed-outline"
+          title="Rooms"
+          subtitle="Room types, numbers and status"
+          onPress={() => navigation.navigate("RoomList")}
+        />
+        <MasterItem
+          icon="pricetag-outline"
+          title="Products"
+          subtitle="Extra services and items"
+          onPress={() => navigation.navigate("ProductList")}
+        />
+        <MasterItem
+          icon="person-outline"
+          title="Guests"
+          subtitle="Guest profiles and contacts"
+          onPress={() => navigation.navigate("GuestList")}
+        />
+        <MasterItem
+          icon="book-outline"
+          title="Ledgers"
+          subtitle="Accounts and balances"
+          onPress={() => navigation.navigate("LedgerList")}
+        />
+        <MasterItem
+          icon="receipt-outline"
+          title="Tax Groups"
+          subtitle="Tax configuration"
+          onPress={() => navigation.navigate("TaxGroupList")}
+        />
+        <MasterItem
+          icon="people-outline"
+          title="Users"
+          subtitle="Admin & employee accounts"
+          onPress={() => navigation.navigate("UserList")}
+        />
+      </ScrollView>
     </View>
   );
 }
+
+const { width } = Dimensions.get("window");
+const ITEM_MARGIN = 8;
+const ITEM_WIDTH = (width - 16 * 2 - ITEM_MARGIN * 2) / 2; // padding *2 + margins
 
 const styles = StyleSheet.create({
   container: {
@@ -114,42 +151,45 @@ const styles = StyleSheet.create({
   },
   header: {
     fontSize: 24,
-    fontWeight: '600',
-    marginBottom: 24,
+    fontWeight: "600",
+    marginBottom: 8,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
+    fontSize: 14,
+    fontWeight: "500",
+    marginBottom: 16,
+  },
+  gridContainer: {
+    paddingBottom: 24,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
   },
   item: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 20,
+    width: ITEM_WIDTH,
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 16,
     paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     marginBottom: 12,
     borderWidth: 1,
   },
   iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  iconText: {
-    fontWeight: '700',
-    fontSize: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
   },
   textBlock: { flex: 1 },
   itemTitle: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: "600",
   },
   itemSubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     marginTop: 2,
   },
 });

@@ -1,27 +1,31 @@
 // src/navigation/RootNavigator.tsx
-import React from 'react';
+import React from "react";
 import {
   NavigationContainer,
   DefaultTheme,
   DarkTheme,
   Theme as NavTheme,
-} from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+} from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
-import { useAuthStore } from '../store/authStore';
-import AuthStack from './AuthStack';
-import MainTabs from './MainTabs';
+import { useAuthStore } from "../store/authStore";
+import AuthStack from "./AuthStack";
+import MainTabs from "./MainTabs";
 
-import CompanyListScreen from '../modules/masters/CompanyListScreen';
-import CompanyEditScreen from '../modules/masters/CompanyEditScreen';
-import CategoryListScreen from '../modules/masters/CategoryListScreen';
-import RoomListScreen from '../modules/masters/RoomListScreen';
-import ProductListScreen from '../modules/masters/ProductListScreen';
-import GuestListScreen from '../modules/masters/GuestListScreen';
-import UserListScreen from '../modules/users/UserListScreen';
-import UserEditScreen from '../modules/users/UserEditScreen';
+import CompanyListScreen from "../modules/masters/CompanyListScreen";
+import CompanyEditScreen from "../modules/masters/CompanyEditScreen";
+import CategoryListScreen from "../modules/masters/CategoryListScreen";
+import RoomListScreen from "../modules/masters/RoomListScreen";
+import ProductListScreen from "../modules/masters/ProductListScreen";
+import GuestListScreen from "../modules/masters/GuestListScreen";
+import UserListScreen from "../modules/users/UserListScreen";
+import UserEditScreen from "../modules/users/UserEditScreen";
 
-import { useThemeStore } from '../store/themeStore';
+import BookingListScreen from "../modules/booking/BookingListScreen";
+import QuickReservationScreen from "../modules/booking/QuickReservationScreen";
+import ArrivalListScreen from "../modules/booking/ArrivalListScreen";
+
+import { useThemeStore } from "../store/themeStore";
 
 export type RootStackParamList = {
   AuthStack: undefined;
@@ -39,15 +43,19 @@ export type RootStackParamList = {
 
   UserList: undefined;
   UserEdit: { id: number };
+
+  BookingList: undefined;
+  QuickReservation: { bookingId?: number } | undefined;
+  ArrivalList: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const RootNavigator: React.FC = () => {
-  const user = useAuthStore(s => s.user);
+  const user = useAuthStore((s) => s.user);
   const { mode, theme } = useThemeStore();
 
-  const baseNavTheme: NavTheme = mode === 'dark' ? DarkTheme : DefaultTheme;
+  const baseNavTheme: NavTheme = mode === "dark" ? DarkTheme : DefaultTheme;
 
   const navTheme: NavTheme = {
     ...baseNavTheme,
@@ -77,14 +85,18 @@ const RootNavigator: React.FC = () => {
             <Stack.Screen name="RoomList" component={RoomListScreen} />
             <Stack.Screen name="ProductList" component={ProductListScreen} />
             <Stack.Screen name="GuestList" component={GuestListScreen} />
-            {/* <Stack.Screen name="LedgerList" component={LedgerListScreen} />
-            <Stack.Screen
-              name="TaxGroupList"
-              component={TaxGroupListScreen}
-            /> */}
+            {/* LedgerList and TaxGroupList are commented for now */}
 
             <Stack.Screen name="UserList" component={UserListScreen} />
             <Stack.Screen name="UserEdit" component={UserEditScreen} />
+
+            {/* Booking flow */}
+            <Stack.Screen name="BookingList" component={BookingListScreen} />
+            <Stack.Screen
+              name="QuickReservation"
+              component={QuickReservationScreen}
+            />
+            <Stack.Screen name="ArrivalList" component={ArrivalListScreen} />
           </>
         )}
       </Stack.Navigator>

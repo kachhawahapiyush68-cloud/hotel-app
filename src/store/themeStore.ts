@@ -9,8 +9,9 @@ type ThemeState = {
 };
 
 export const useThemeStore = create<ThemeState>((set, get) => ({
-  theme: darkTheme,
-  mode: 'dark',
+  // start in light mode
+  theme: lightTheme,
+  mode: 'light',
   toggleTheme: () => {
     const current = get().mode;
     const next = current === 'dark' ? 'light' : 'dark';
