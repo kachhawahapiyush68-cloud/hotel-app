@@ -1,3 +1,4 @@
+// modules/kot/KotListScreen.tsx
 import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
@@ -93,9 +94,7 @@ const KotListScreen: React.FC = () => {
               {item.kot_no || `KOT #${item.kot_id}`}
             </Text>
             <Text style={[styles.kotDate, { color: theme.colors.textSecondary }]}>
-              {item.kot_datetime
-                ? formatDateTime(item.kot_datetime)
-                : "No datetime"}
+              {item.kot_datetime ? formatDateTime(item.kot_datetime) : "No datetime"}
             </Text>
           </View>
 

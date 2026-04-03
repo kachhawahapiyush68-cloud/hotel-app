@@ -1,235 +1,230 @@
-// src/modules/bill/BillDetailScreen.tsx
-import React, { useEffect, useState } from "react";
-import { View, Text, ScrollView, Alert, TouchableOpacity } from "react-native";
-import { useRoute } from "@react-navigation/native";
-import { useThemeStore } from "../../store/themeStore";
+import React, { useEffect, useMemo, useState } from "react";
+import { View, ScrollView, StyleSheet, Text, Alert } from "react-native";
+import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
+import { BillDetailResponse, BillPaymentStatus } from "./types";
+import { deleteBill, fetchBillDetail, updateBillPaymentStatus } from "./api";
 import Loader from "../../shared/components/Loader";
-import { useBillStore } from "./store";
+import SectionTitle from "../../shared/components/SectionTitle";
+import AppButton from "../../shared/components/AppButton";
+import SelectModal, { SelectItem } from "../../shared/components/SelectModal";
 import BillItemRow from "./components/BillItemRow";
+import { formatDateTime } from "../../shared/utils/date";
+import { formatNumber } from "../../shared/utils/number";
+import { useThemeStore } from "../../store/themeStore";
+
+type ParamList = {
+  BillDetail: {
+    billId: number;
+  };
+};
+
+const PAYMENT_OPTIONS: SelectItem[] = [
+  { label: "Unpaid", value: "Unpaid" },
+  { label: "Partially Paid", value: "PartiallyPaid" },
+  { label: "Paid", value: "Paid" },
+];
 
 const BillDetailScreen: React.FC = () => {
-  const route = useRoute<any>();
-  const billId: number = route.params?.billId;
+  const route = useRoute<RouteProp<ParamList, "BillDetail">>();
+  const navigation = useNavigation<any>();
   const { theme } = useThemeStore();
-  const colors = theme.colors;
+  const billId = route.params.billId;
 
-  const { currentBill, currentItems, loading, getById, updatePaymentStatus } =
-    useBillStore();
-
-  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [detail, setDetail] = useState<BillDetailResponse | null>(null);
+  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
 
   useEffect(() => {
-    if (billId) {
-      getById(billId);
-    }
-  }, [billId, getById]);
+    load();
+  }, [billId]);
 
-  if (loading && !currentBill) {
+  const load = async () => {
+    try {
+      setLoading(true);
+      const res = await fetchBillDetail(billId);
+      setDetail(res);
+    } catch (e: any) {
+      Alert.alert("Error", e?.response?.data?.message || e?.message || "Failed to load bill");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const guestName = useMemo(() => {
+    const bill = detail?.bill;
+    if (!bill) return "";
+    return bill.first_name || bill.last_name
+      ? `${bill.first_name || ""} ${bill.last_name || ""}`.trim()
+      : "";
+  }, [detail]);
+
+  const onSelectPaymentStatus = async (item: SelectItem) => {
+    try {
+      setPaymentModalVisible(false);
+      setLoading(true);
+      await updateBillPaymentStatus(billId, item.value as BillPaymentStatus);
+      await load();
+      Alert.alert("Success", "Payment status updated");
+    } catch (e: any) {
+      Alert.alert("Error", e?.response?.data?.message || e?.message || "Failed to update status");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onDelete = () => {
+    Alert.alert("Delete Bill", "Are you sure you want to delete this bill?", [
+      { text: "No" },
+      {
+        text: "Yes",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            setLoading(true);
+            await deleteBill(billId);
+            Alert.alert("Deleted", "Bill deleted successfully");
+            navigation.goBack();
+          } catch (e: any) {
+            Alert.alert("Error", e?.response?.data?.message || e?.message || "Failed to delete bill");
+          } finally {
+            setLoading(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  if (loading && !detail) {
     return <Loader />;
   }
 
-  if (!currentBill) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: colors.background,
-        }}
-      >
-        <Text style={{ color: colors.textSecondary }}>Bill not found.</Text>
-      </View>
-    );
-  }
-
-  const formatMoney = (v: any) => {
-    const n = Number(v || 0);
-    if (Number.isNaN(n)) return "0.00";
-    return n.toFixed(2);
-  };
-
-  const setStatus = async (status: "Unpaid" | "Paid" | "PartiallyPaid") => {
-    try {
-      setSaving(true);
-      const updated = await updatePaymentStatus(currentBill.bill_id, status);
-      setSaving(false);
-
-      if (!updated) {
-        Alert.alert("Error", "Failed to update payment status");
-        return;
-      }
-
-      Alert.alert("Success", `Bill marked as ${status}`);
-    } catch (e: any) {
-      setSaving(false);
-      Alert.alert(
-        "Error",
-        e?.response?.data?.message || e?.message || "Failed to update status"
-      );
-    }
-  };
-
-  const StatusButton = ({
-    title,
-    value,
-  }: {
-    title: string;
-    value: "Unpaid" | "Paid" | "PartiallyPaid";
-  }) => {
-    const active = currentBill.payment_status === value;
-
-    return (
-      <TouchableOpacity
-        onPress={() => setStatus(value)}
-        disabled={saving}
-        style={{
-          flex: 1,
-          paddingVertical: 10,
-          borderRadius: 8,
-          marginRight: value !== "PartiallyPaid" ? 8 : 0,
-          backgroundColor: active
-            ? colors.primary
-            : colors.surface || "#F3F4F6",
-          alignItems: "center",
-        }}
-      >
-        <Text
-          style={{
-            color: active ? "#fff" : colors.text,
-            fontSize: 12,
-            fontWeight: "700",
-          }}
-        >
-          {title}
-        </Text>
-      </TouchableOpacity>
-    );
-  };
+  if (!detail) return null;
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={{ padding: 16, paddingBottom: 28 }}
-    >
-      <Text
-        style={{
-          color: colors.text,
-          fontSize: 22,
-          fontWeight: "700",
-        }}
-      >
-        Bill #{currentBill.bill_no}
-      </Text>
+    <View style={[styles.wrapper, { backgroundColor: theme.colors.background }]}>
+      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 24 }}>
+        <SectionTitle
+          title="Bill Detail"
+          subtitle={detail.bill.bill_no}
+        />
 
-      <Text
-        style={{
-          color: colors.textSecondary,
-          marginTop: 4,
-          fontSize: 13,
-        }}
-      >
-        {currentBill.bill_type} • {currentBill.payment_status}
-      </Text>
-
-      <View
-        style={{
-          marginTop: 14,
-          padding: 12,
-          borderRadius: 10,
-          backgroundColor: colors.surface || "#F9FAFB",
-        }}
-      >
-        <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-          Booking ID: {currentBill.booking_id ?? "-"}
-        </Text>
-        <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 3 }}>
-          Guest ID: {currentBill.guest_id ?? "-"}
-        </Text>
-        <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 3 }}>
-          Room ID: {currentBill.room_id ?? "-"}
-        </Text>
-        <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 3 }}>
-          Folio ID: {currentBill.folio_id ?? "-"}
-        </Text>
-      </View>
-
-      <View style={{ marginTop: 16 }}>
-        <Text
-          style={{
-            color: colors.text,
-            fontSize: 16,
-            fontWeight: "700",
-            marginBottom: 6,
-          }}
+        <View
+          style={[
+            styles.summaryCard,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+            },
+          ]}
         >
-          Items
-        </Text>
-
-        {currentItems.length === 0 ? (
-          <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-            No items found for this bill.
+          <Text style={[styles.row, { color: theme.colors.text }]}>
+            Bill Type: {detail.bill.bill_type}
           </Text>
-        ) : (
-          currentItems.map((item) => (
-            <BillItemRow key={item.bill_item_id} item={item} />
-          ))
-        )}
-      </View>
+          <Text style={[styles.row, { color: theme.colors.textSecondary }]}>
+            Date: {detail.bill.bill_datetime ? formatDateTime(detail.bill.bill_datetime) : "-"}
+          </Text>
+          <Text style={[styles.row, { color: theme.colors.textSecondary }]}>
+            Payment Status: {detail.bill.payment_status || "Unpaid"}
+          </Text>
 
-      <View
-        style={{
-          marginTop: 16,
-          paddingTop: 10,
-          borderTopWidth: 0.5,
-          borderTopColor: colors.border || "#E5E7EB",
-        }}
-      >
-        <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-          Gross: ₹ {formatMoney(currentBill.gross_amount)}
-        </Text>
-        <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: 3 }}>
-          Discount: ₹ {formatMoney(currentBill.discount_amount)}
-        </Text>
-        <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: 3 }}>
-          Tax: ₹ {formatMoney(currentBill.tax_amount)}
-        </Text>
-        <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: 3 }}>
-          Round off: ₹ {formatMoney(currentBill.round_off)}
-        </Text>
+          {guestName ? (
+            <Text style={[styles.row, { color: theme.colors.textSecondary }]}>
+              Guest: {guestName}
+            </Text>
+          ) : null}
 
-        <Text
-          style={{
-            color: colors.text,
-            fontSize: 18,
-            fontWeight: "800",
-            marginTop: 8,
-          }}
-        >
-          Net Amount: ₹ {formatMoney(currentBill.net_amount)}
-        </Text>
-      </View>
+          {detail.bill.room_no ? (
+            <Text style={[styles.row, { color: theme.colors.textSecondary }]}>
+              Room: {detail.bill.room_no}
+            </Text>
+          ) : null}
 
-      <View style={{ marginTop: 20 }}>
-        <Text
-          style={{
-            color: colors.text,
-            fontSize: 14,
-            fontWeight: "700",
-            marginBottom: 8,
-          }}
-        >
-          Payment Status
-        </Text>
+          {detail.bill.folio_no ? (
+            <Text style={[styles.row, { color: theme.colors.textSecondary }]}>
+              Folio: {detail.bill.folio_no}
+            </Text>
+          ) : null}
 
-        <View style={{ flexDirection: "row" }}>
-          <StatusButton title="Unpaid" value="Unpaid" />
-          <StatusButton title="Paid" value="Paid" />
-          <StatusButton title="Partial" value="PartiallyPaid" />
+          {detail.bill.reservation_no ? (
+            <Text style={[styles.row, { color: theme.colors.textSecondary }]}>
+              Booking: {detail.bill.reservation_no}
+            </Text>
+          ) : null}
+
+          <View style={styles.amountWrap}>
+            <Text style={[styles.amountLine, { color: theme.colors.textSecondary }]}>
+              Gross: ₹ {formatNumber(detail.bill.gross_amount || 0, 2)}
+            </Text>
+            <Text style={[styles.amountLine, { color: theme.colors.textSecondary }]}>
+              Discount: ₹ {formatNumber(detail.bill.discount_amount || 0, 2)}
+            </Text>
+            <Text style={[styles.amountLine, { color: theme.colors.textSecondary }]}>
+              Tax: ₹ {formatNumber(detail.bill.tax_amount || 0, 2)}
+            </Text>
+            <Text style={[styles.amountLine, { color: theme.colors.textSecondary }]}>
+              Round Off: ₹ {formatNumber(detail.bill.round_off || 0, 2)}
+            </Text>
+            <Text style={[styles.netAmount, { color: theme.colors.primary }]}>
+              Net Amount: ₹ {formatNumber(detail.bill.net_amount || 0, 2)}
+            </Text>
+          </View>
         </View>
-      </View>
-    </ScrollView>
+
+        <SectionTitle title="Items" />
+
+        {detail.items.map((item, index) => (
+          <BillItemRow key={item.bill_item_id || index} item={item} index={index} />
+        ))}
+
+        <AppButton
+          title="Update Payment Status"
+          onPress={() => setPaymentModalVisible(true)}
+          style={{ marginBottom: 10 }}
+        />
+
+        <AppButton
+          title="Delete Bill"
+          variant="outline"
+          onPress={onDelete}
+        />
+      </ScrollView>
+
+      <SelectModal
+        visible={paymentModalVisible}
+        title="Update Payment Status"
+        data={PAYMENT_OPTIONS}
+        onSelect={onSelectPaymentStatus}
+        onClose={() => setPaymentModalVisible(false)}
+      />
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  wrapper: { flex: 1 },
+  container: { flex: 1, padding: 16 },
+  summaryCard: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+  },
+  row: {
+    fontSize: 14,
+    marginBottom: 6,
+  },
+  amountWrap: {
+    marginTop: 10,
+  },
+  amountLine: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  netAmount: {
+    marginTop: 8,
+    fontSize: 18,
+    fontWeight: "700",
+  },
+});
 
 export default BillDetailScreen;

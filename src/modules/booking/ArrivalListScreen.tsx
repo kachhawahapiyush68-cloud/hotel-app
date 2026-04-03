@@ -1,4 +1,3 @@
-// src/modules/booking/ArrivalListScreen.tsx
 import React, { useEffect } from "react";
 import {
   View,
@@ -33,7 +32,7 @@ const ArrivalListScreen: React.FC = () => {
     try {
       setState((s) => ({ ...s, loadingLocal: true }));
 
-      const todayIso = toIsoDate(new Date()); // "YYYY-MM-DD"
+      const todayIso = toIsoDate(new Date());
       const arrivals = await bookingApi.arrivals({ date: todayIso });
 
       setState({ loadingLocal: false, arrivalsLocal: arrivals });

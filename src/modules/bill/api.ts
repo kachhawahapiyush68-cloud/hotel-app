@@ -1,26 +1,37 @@
-// src/modules/bill/api.ts
+import { billApi } from "../../api/billApi";
 import {
-  billApi,
   Bill,
-  BillItem,
-  BillCreateInput,
-  BillFromKotInput,
+  BillDetailResponse,
+  CreateBillPayload,
+  CreateBillFromKotPayload,
   BillPaymentStatus,
-} from "../../api/billApi";
+} from "./types";
 
-export type {
-  Bill,
-  BillItem,
-  BillCreateInput,
-  BillFromKotInput,
-  BillPaymentStatus,
-};
+export async function fetchBillList(billtype?: string): Promise<Bill[]> {
+  return billApi.getBills(billtype ? { billtype } : undefined);
+}
 
-export const billModuleApi = {
-  list: billApi.list,
-  get: billApi.get,
-  create: billApi.create,
-  createFromKot: billApi.createFromKot,
-  remove: billApi.remove,
-  updatePaymentStatus: billApi.updatePaymentStatus,
-};
+export async function fetchBillDetail(id: number): Promise<BillDetailResponse> {
+  return billApi.getBillById(id);
+}
+
+export async function createBill(payload: CreateBillPayload): Promise<Bill> {
+  return billApi.createBill(payload);
+}
+
+export async function createBillFromKot(
+  payload: CreateBillFromKotPayload
+): Promise<BillDetailResponse> {
+  return billApi.createBillFromKot(payload);
+}
+
+export async function updateBillPaymentStatus(
+  id: number,
+  paymentStatus: BillPaymentStatus
+): Promise<Bill> {
+  return billApi.updatePaymentStatus(id, paymentStatus);
+}
+
+export async function deleteBill(id: number): Promise<void> {
+  return billApi.deleteBill(id);
+}

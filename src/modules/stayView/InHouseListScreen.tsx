@@ -1,4 +1,3 @@
-// src/modules/stayView/InHouseListScreen.tsx
 import React, { useEffect, useState } from "react";
 import { View, FlatList, RefreshControl, Text } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";

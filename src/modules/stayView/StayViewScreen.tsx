@@ -1,13 +1,13 @@
-// src/modules/stayView/StayViewScreen.tsx
 import React, { useState } from "react";
 import { View, Text, ScrollView, Alert } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import { useNavigation } from "@react-navigation/native";
 import { useBookingStore } from "../booking/store";
 import { useThemeStore } from "../../store/themeStore";
 import AppButton from "../../shared/components/AppButton";
 import { formatDateTime } from "../../shared/utils/date";
 import { bookingApi } from "../../api/bookingApi";
-import { useNavigation } from "@react-navigation/native";
+import { postingApi } from "../../api/postingApi";
 
 const StayViewScreen: React.FC = () => {
   const { currentBooking, currentFolio, clearCurrent } = useBookingStore();
@@ -48,6 +48,8 @@ const StayViewScreen: React.FC = () => {
   }
 
   const handleCheckOut = async () => {
+    if (loading) return;
+
     try {
       setLoading(true);
       await bookingApi.checkOut(currentBooking.booking_id);
@@ -64,14 +66,62 @@ const StayViewScreen: React.FC = () => {
     }
   };
 
-  const handleBilling = () => {
-    navigation.navigate("BillFromKot", {
-      kotIds: [],
-      bookingId: currentBooking.booking_id,
-      guestId: currentBooking.guest_id,
-      folioId: currentFolio.folio_id,
-      roomId: currentBooking.room_id,
-    });
+  const handleBilling = async () => {
+    if (loading) return;
+
+    try {
+      setLoading(true);
+      const res = await bookingApi.createBillFromBooking(
+        currentBooking.booking_id
+      );
+
+      Alert.alert("Bill generated", `Bill no: ${res.bill.bill_no}`, [
+        {
+          text: "Open Bill",
+          onPress: () =>
+            navigation.navigate("BillDetail", {
+              billId: res.bill.bill_id,
+            }),
+        },
+        { text: "OK" },
+      ]);
+    } catch (e: any) {
+      Alert.alert(
+        "Error",
+        e?.response?.data?.message || e?.message || "Could not generate bill."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddCharge = () => {
+    if (loading) return;
+    navigation.navigate("AddCharge");
+  };
+
+  const handlePostRoomRent = async () => {
+    if (loading) return;
+
+    try {
+      setLoading(true);
+
+      const res = await postingApi.postRoomRent({
+        booking_id: currentBooking.booking_id,
+      });
+
+      Alert.alert(
+        "Room rent posted",
+        `Posting ID: ${res.posting_id}\nAmount: ${res.amount}`
+      );
+    } catch (e: any) {
+      Alert.alert(
+        "Error",
+        e?.response?.data?.message || e?.message || "Could not post room rent."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -124,27 +174,48 @@ const StayViewScreen: React.FC = () => {
         </Text>
       </View>
 
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          marginTop: 8,
-        }}
-      >
-        <View style={{ flex: 1, marginRight: 8 }}>
+      <View style={{ marginTop: 8 }}>
+        <View style={{ marginBottom: 10 }}>
           <AppButton
-            title="Check-out"
-            onPress={handleCheckOut}
+            title={loading ? "Please wait..." : "Post Room Rent"}
+            onPress={handlePostRoomRent}
             disabled={loading || currentBooking.status !== "CheckedIn"}
           />
         </View>
 
-        <View style={{ flex: 1 }}>
-          <AppButton
-            title="Billing"
-            onPress={handleBilling}
-            disabled={loading}
-          />
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+          }}
+        >
+          <View style={{ flex: 1, marginRight: 8 }}>
+            <AppButton
+              title="Check-out"
+              onPress={handleCheckOut}
+              disabled={loading || currentBooking.status !== "CheckedIn"}
+              size="small"
+            />
+          </View>
+
+          <View style={{ flex: 1, marginRight: 8 }}>
+            <AppButton
+              title="Add Charge"
+              onPress={handleAddCharge}
+              disabled={loading}
+              variant="outline"
+              size="small"
+            />
+          </View>
+
+          <View style={{ flex: 1 }}>
+            <AppButton
+              title="Billing"
+              onPress={handleBilling}
+              disabled={loading}
+              size="small"
+            />
+          </View>
         </View>
       </View>
     </ScrollView>

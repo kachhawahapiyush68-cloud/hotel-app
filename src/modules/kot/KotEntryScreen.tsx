@@ -1,19 +1,23 @@
+// modules/kot/KotEntryScreen.tsx
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  ScrollView,
-  StyleSheet,
-  Alert,
-  View,
-  Text,
-} from "react-native";
+import { ScrollView, StyleSheet, Alert, View, Text } from "react-native";
 import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import {
   KotDetailResponse,
   CreateKotItemInput,
   CreateKotPayload,
   KotServiceType,
+  InHouseRoomOption,
+  KotStatus,
 } from "../../api/types";
-import { createKot, fetchKotDetail } from "./api";
+import {
+  createKot,
+  fetchKotDetail,
+  fetchInHouseRooms,
+  updateKot,
+  updateKotStatus,
+  deleteKot,
+} from "./api";
 import Loader from "../../shared/components/Loader";
 import AppInput from "../../shared/components/AppInput";
 import AppButton from "../../shared/components/AppButton";
@@ -28,12 +32,16 @@ type ParamList = {
   KotEntry: {
     kotId?: number;
     booking_id?: number;
-    folio_id?: number;
     room_id?: number;
     table_no?: string;
     service_type?: KotServiceType;
   };
 };
+
+const SERVICE_TYPE_OPTIONS: SelectItem[] = [
+  { label: "Table Service", value: "TABLE" },
+  { label: "Room Service", value: "ROOM" },
+];
 
 const KotEntryScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -49,23 +57,21 @@ const KotEntryScreen: React.FC = () => {
   const [kotNo, setKotNo] = useState("");
   const [notes, setNotes] = useState("");
   const [tableNo, setTableNo] = useState(route.params?.table_no || "");
-  const [bookingId, setBookingId] = useState<number | undefined>(
-    route.params?.booking_id
-  );
-  const [folioId, setFolioId] = useState<number | undefined>(
-    route.params?.folio_id
-  );
-  const [roomId, setRoomId] = useState<number | undefined>(
-    route.params?.room_id
-  );
+  const [bookingId, setBookingId] = useState<number | undefined>(route.params?.booking_id);
+  const [roomId, setRoomId] = useState<number | undefined>(route.params?.room_id);
   const [serviceType, setServiceType] = useState<KotServiceType>(
     route.params?.service_type || "TABLE"
   );
   const [items, setItems] = useState<CreateKotItemInput[]>([]);
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [rooms, setRooms] = useState<InHouseRoomOption[]>([]);
+
   const [pickerVisible, setPickerVisible] = useState(false);
   const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null);
+
+  const [serviceTypePickerVisible, setServiceTypePickerVisible] = useState(false);
+  const [roomPickerVisible, setRoomPickerVisible] = useState(false);
 
   useEffect(() => {
     loadProducts();
@@ -77,15 +83,27 @@ const KotEntryScreen: React.FC = () => {
     }
   }, [kotId]);
 
+  useEffect(() => {
+    if (!isView && serviceType === "ROOM") {
+      loadRooms();
+    }
+  }, [serviceType, isView]);
+
   const loadProducts = async () => {
     try {
       const res = await productApi.list();
       setProducts(res);
     } catch (e: any) {
-      Alert.alert(
-        "Error",
-        e?.response?.data?.message || e?.message || "Failed to load products"
-      );
+      Alert.alert("Error", e?.response?.data?.message || e?.message || "Failed to load products");
+    }
+  };
+
+  const loadRooms = async () => {
+    try {
+      const res = await fetchInHouseRooms();
+      setRooms(res);
+    } catch (e: any) {
+      Alert.alert("Error", e?.response?.data?.message || e?.message || "Failed to load rooms");
     }
   };
 
@@ -98,7 +116,6 @@ const KotEntryScreen: React.FC = () => {
       setNotes(res.kot.notes || "");
       setTableNo(res.kot.table_no || "");
       setBookingId(res.kot.booking_id ?? undefined);
-      setFolioId(res.kot.folio_id ?? undefined);
       setRoomId(res.kot.room_id ?? undefined);
       setServiceType(res.kot.service_type || "TABLE");
 
@@ -112,10 +129,7 @@ const KotEntryScreen: React.FC = () => {
         }))
       );
     } catch (e: any) {
-      Alert.alert(
-        "Error",
-        e?.response?.data?.message || e?.message || "Failed to load KOT"
-      );
+      Alert.alert("Error", e?.response?.data?.message || e?.message || "Failed to load KOT");
     } finally {
       setLoading(false);
     }
@@ -130,9 +144,23 @@ const KotEntryScreen: React.FC = () => {
     [products]
   );
 
+  const roomOptions: SelectItem[] = useMemo(
+    () =>
+      rooms.map((room) => ({
+        label: room.display_label,
+        value: room.booking_id,
+      })),
+    [rooms]
+  );
+
   const getProductName = (productId: number) => {
     const product = products.find((p) => p.product_id === productId);
     return product?.product_name || "";
+  };
+
+  const getSelectedRoomLabel = () => {
+    const room = rooms.find((r) => r.booking_id === bookingId);
+    return room?.display_label || "";
   };
 
   const addItem = () => {
@@ -174,7 +202,9 @@ const KotEntryScreen: React.FC = () => {
               ...row,
               product_id: product.product_id,
               rate_at_time:
-                row.rate_at_time != null ? row.rate_at_time : product.rate ?? 0,
+                row.rate_at_time != null && row.rate_at_time > 0
+                  ? row.rate_at_time
+                  : (product.rate as number) ?? 0,
             }
           : row
       )
@@ -184,10 +214,31 @@ const KotEntryScreen: React.FC = () => {
     setSelectedRowIndex(null);
   };
 
+  const onSelectServiceType = (item: SelectItem) => {
+    const next = item.value as KotServiceType;
+    setServiceType(next);
+
+    if (next === "TABLE") {
+      setBookingId(undefined);
+      setRoomId(undefined);
+    } else {
+      setTableNo("");
+    }
+
+    setServiceTypePickerVisible(false);
+  };
+
+  const onSelectRoom = (item: SelectItem) => {
+    const selected = rooms.find((r) => r.booking_id === Number(item.value));
+    if (!selected) return;
+
+    setBookingId(selected.booking_id);
+    setRoomId(selected.room_id ?? undefined);
+    setRoomPickerVisible(false);
+  };
+
   const totalAmount = items.reduce(
-    (sum, item) =>
-      sum +
-      (Number(item.qty) || 0) * (Number(item.rate_at_time ?? 0) || 0),
+    (sum, item) => sum + (Number(item.qty) || 0) * (Number(item.rate_at_time ?? 0) || 0),
     0
   );
 
@@ -198,17 +249,11 @@ const KotEntryScreen: React.FC = () => {
     }
 
     const hasInvalid = items.some(
-      (item) =>
-        !item.product_id ||
-        Number(item.qty) <= 0 ||
-        Number(item.rate_at_time ?? 0) < 0
+      (item) => !item.product_id || Number(item.qty) <= 0 || Number(item.rate_at_time ?? 0) < 0
     );
 
     if (hasInvalid) {
-      Alert.alert(
-        "Validation",
-        "Each item must have product, qty greater than 0, and valid rate"
-      );
+      Alert.alert("Validation", "Each item must have product, qty greater than 0, and valid rate");
       return false;
     }
 
@@ -217,26 +262,22 @@ const KotEntryScreen: React.FC = () => {
       return false;
     }
 
-    if (serviceType === "ROOM" && !bookingId && !roomId) {
-      Alert.alert(
-        "Validation",
-        "For room service KOT, booking ID or room ID is required"
-      );
+    if (serviceType === "ROOM" && !bookingId) {
+      Alert.alert("Validation", "Please select a checked-in room");
       return false;
     }
 
     return true;
   };
 
-  const handleSave = async () => {
+  const handleCreate = async () => {
     if (!validate()) return;
 
     const payload: CreateKotPayload = {
       service_type: serviceType,
-      kot_datetime: undefined,
-      table_no: serviceType === "TABLE" ? tableNo.trim() || undefined : undefined,
-      booking_id: serviceType === "ROOM" ? bookingId ?? undefined : undefined,
-      room_id: serviceType === "ROOM" ? roomId ?? undefined : undefined,
+      table_no: serviceType === "TABLE" ? tableNo.trim() : undefined,
+      booking_id: serviceType === "ROOM" ? bookingId : undefined,
+      room_id: serviceType === "ROOM" ? roomId : undefined,
       notes: notes.trim() || undefined,
       items,
     };
@@ -244,11 +285,10 @@ const KotEntryScreen: React.FC = () => {
     try {
       setLoading(true);
       const res = await createKot(payload);
-      Alert.alert("Success", "KOT created successfully", [
+      Alert.alert("Success", `KOT created successfully: ${res.kot.kot_no}`, [
         {
           text: "Open",
-          onPress: () =>
-            navigation.replace("KotEntry", { kotId: res.kot.kot_id }),
+          onPress: () => navigation.replace("KotEntry", { kotId: res.kot.kot_id }),
         },
         {
           text: "Back to List",
@@ -256,13 +296,84 @@ const KotEntryScreen: React.FC = () => {
         },
       ]);
     } catch (e: any) {
-      Alert.alert(
-        "Error",
-        e?.response?.data?.message || e?.message || "Failed to create KOT"
-      );
+      Alert.alert("Error", e?.response?.data?.message || e?.message || "Failed to create KOT");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleUpdate = async () => {
+    if (!validate() || !kotId) return;
+
+    try {
+      setLoading(true);
+      await updateKot(kotId, {
+        service_type: serviceType,
+        table_no: serviceType === "TABLE" ? tableNo.trim() : undefined,
+        booking_id: serviceType === "ROOM" ? bookingId : undefined,
+        room_id: serviceType === "ROOM" ? roomId : undefined,
+        notes: notes.trim() || undefined,
+        items,
+      });
+      Alert.alert("Success", "KOT updated successfully");
+      await loadKot(kotId);
+    } catch (e: any) {
+      Alert.alert("Error", e?.response?.data?.message || e?.message || "Failed to update KOT");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelKot = async () => {
+    if (!kotId) return;
+    Alert.alert("Cancel KOT", "Are you sure you want to cancel this KOT?", [
+      { text: "No" },
+      {
+        text: "Yes",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            setLoading(true);
+            await updateKotStatus(kotId, "Cancelled");
+            Alert.alert("Success", "KOT cancelled");
+            await loadKot(kotId);
+          } catch (e: any) {
+            Alert.alert(
+              "Error",
+              e?.response?.data?.message || e?.message || "Failed to cancel KOT"
+            );
+          } finally {
+            setLoading(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleDeleteKot = async () => {
+    if (!kotId) return;
+    Alert.alert("Delete KOT", "Delete this KOT permanently? (Not billed only)", [
+      { text: "No" },
+      {
+        text: "Yes",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            setLoading(true);
+            await deleteKot(kotId);
+            Alert.alert("Deleted", "KOT deleted");
+            navigation.goBack();
+          } catch (e: any) {
+            Alert.alert(
+              "Error",
+              e?.response?.data?.message || e?.message || "Failed to delete KOT"
+            );
+          } finally {
+            setLoading(false);
+          }
+        },
+      },
+    ]);
   };
 
   if (loading && isView && !detail) {
@@ -271,10 +382,11 @@ const KotEntryScreen: React.FC = () => {
 
   const guestName =
     detail?.kot?.first_name || detail?.kot?.last_name
-      ? `${detail?.kot?.first_name || ""} ${
-          detail?.kot?.last_name || ""
-        }`.trim()
+      ? `${detail?.kot?.first_name || ""} ${detail?.kot?.last_name || ""}`.trim()
       : "";
+
+  const canEditOrCancel: boolean =
+    !!detail && detail.kot.status === "Open";
 
   return (
     <View style={[styles.wrapper, { backgroundColor: theme.colors.background }]}>
@@ -285,7 +397,7 @@ const KotEntryScreen: React.FC = () => {
       >
         <SectionTitle
           title={isView ? "KOT Detail" : "New KOT"}
-          subtitle={isView ? `KOT #${kotId}` : "Create kitchen order"}
+          subtitle={isView ? kotNo || `KOT #${kotId}` : "Create kitchen order"}
         />
 
         <View
@@ -299,40 +411,29 @@ const KotEntryScreen: React.FC = () => {
         >
           <View style={styles.summaryTopRow}>
             <View>
-              <Text
-                style={[
-                  styles.summaryLabel,
-                  { color: theme.colors.textSecondary },
-                ]}
-              >
+              <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>
                 Status
               </Text>
-              <Text
-                style={[
-                  styles.summaryValue,
-                  { color: theme.colors.primary },
-                ]}
-              >
+              <Text style={[styles.summaryValue, { color: theme.colors.primary }]}>
                 {detail?.kot?.status || "Open"}
               </Text>
             </View>
 
             <View>
-              <Text
-                style={[
-                  styles.summaryLabel,
-                  { color: theme.colors.textSecondary },
-                ]}
-              >
+              <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>
                 Total
               </Text>
-              <Text
-                style={[styles.summaryValue, { color: theme.colors.text }]}
-              >
+              <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
                 ₹ {totalAmount.toFixed(2)}
               </Text>
             </View>
           </View>
+
+          {kotNo ? (
+            <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
+              KOT No: {kotNo}
+            </Text>
+          ) : null}
 
           {isView && detail?.kot?.kot_datetime ? (
             <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
@@ -362,68 +463,40 @@ const KotEntryScreen: React.FC = () => {
         <SectionTitle title="Order Info" />
 
         <AppInput
-          label="KOT No"
-          value={kotNo}
-          onChangeText={setKotNo}
-          placeholder="Auto generate if left blank"
-          editable={!isView}
-        />
-
-        <AppInput
           label="Service Type"
           value={serviceType}
           editable={false}
-          placeholder="TABLE / ROOM"
+          onPress={isView ? undefined : () => setServiceTypePickerVisible(true)}
+          placeholder="Select service type"
         />
 
-        <AppInput
-          label="Table No"
-          value={tableNo}
-          onChangeText={setTableNo}
-          placeholder="Optional for restaurant orders"
-          editable={!isView}
-        />
-
-        <View style={styles.inlineRow}>
-          <View style={styles.inlineCol}>
-            <AppInput
-              label="Booking ID"
-              value={bookingId ? String(bookingId) : ""}
-              onChangeText={(text) =>
-                setBookingId(text ? Number(text) : undefined)
-              }
-              editable={!isView}
-              keyboardType="numeric"
-              placeholder="Optional"
-            />
-          </View>
-
-          <View style={styles.inlineCol}>
-            <AppInput
-              label="Room ID"
-              value={roomId ? String(roomId) : ""}
-              onChangeText={(text) => setRoomId(text ? Number(text) : undefined)}
-              editable={!isView}
-              keyboardType="numeric"
-              placeholder="Optional"
-            />
-          </View>
-        </View>
-
-        <AppInput
-          label="Folio ID"
-          value={folioId ? String(folioId) : ""}
-          onChangeText={(text) => setFolioId(text ? Number(text) : undefined)}
-          editable={!isView}
-          keyboardType="numeric"
-          placeholder="Optional; backend auto-link via booking"
-        />
+        {serviceType === "TABLE" ? (
+          <AppInput
+            label="Table No"
+            value={tableNo}
+            onChangeText={setTableNo}
+            placeholder="Enter table number"
+            editable={!isView || canEditOrCancel}
+          />
+        ) : (
+          <AppInput
+            label="Checked-in Room"
+            value={
+              isView
+                ? detail?.kot?.display_label || detail?.kot?.room_no || ""
+                : getSelectedRoomLabel()
+            }
+            editable={false}
+            onPress={isView ? undefined : () => setRoomPickerVisible(true)}
+            placeholder="Select checked-in room"
+          />
+        )}
 
         <AppInput
           label="Notes"
           value={notes}
           onChangeText={setNotes}
-          editable={!isView}
+          editable={!isView || canEditOrCancel}
           multiline
           placeholder="Kitchen note / room service note"
         />
@@ -443,12 +516,7 @@ const KotEntryScreen: React.FC = () => {
             <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
               No items added yet
             </Text>
-            <Text
-              style={[
-                styles.emptySubtitle,
-                { color: theme.colors.textSecondary },
-              ]}
-            >
+            <Text style={[styles.emptySubtitle, { color: theme.colors.textSecondary }]}>
               Add one or more products to create this KOT
             </Text>
           </View>
@@ -463,11 +531,11 @@ const KotEntryScreen: React.FC = () => {
             onChange={(next) => updateItem(index, next)}
             onRemove={() => removeItem(index)}
             onSelectProduct={() => openProductPicker(index)}
-            disabled={isView}
+            disabled={isView && !canEditOrCancel}
           />
         ))}
 
-        {!isView && (
+        {!isView ? (
           <>
             <AppButton
               title="Add Item"
@@ -475,12 +543,30 @@ const KotEntryScreen: React.FC = () => {
               onPress={addItem}
               style={{ marginBottom: 12 }}
             />
-            <AppButton
-              title="Save KOT"
-              onPress={handleSave}
-              loading={loading}
-            />
+            <AppButton title="Save KOT" onPress={handleCreate} loading={loading} />
           </>
+        ) : (
+          canEditOrCancel && (
+            <>
+              <AppButton
+                title="Update KOT"
+                onPress={handleUpdate}
+                loading={loading}
+                style={{ marginBottom: 8 }}
+              />
+              <AppButton
+                title="Cancel KOT"
+                variant="outline"
+                onPress={handleCancelKot}
+                style={{ marginBottom: 8 }}
+              />
+              <AppButton
+                title="Delete KOT"
+                variant="outline"
+                onPress={handleDeleteKot}
+              />
+            </>
+          )
         )}
       </ScrollView>
 
@@ -494,18 +580,29 @@ const KotEntryScreen: React.FC = () => {
           setSelectedRowIndex(null);
         }}
       />
+
+      <SelectModal
+        visible={serviceTypePickerVisible}
+        title="Select Service Type"
+        data={SERVICE_TYPE_OPTIONS}
+        onSelect={onSelectServiceType}
+        onClose={() => setServiceTypePickerVisible(false)}
+      />
+
+      <SelectModal
+        visible={roomPickerVisible}
+        title="Select Checked-in Room"
+        data={roomOptions}
+        onSelect={onSelectRoom}
+        onClose={() => setRoomPickerVisible(false)}
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    padding: 16,
-  },
+  wrapper: { flex: 1 },
+  container: { flex: 1, padding: 16 },
   summaryCard: {
     borderWidth: 1,
     borderRadius: 18,
@@ -528,13 +625,6 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 13,
     marginTop: 4,
-  },
-  inlineRow: {
-    flexDirection: "row",
-  },
-  inlineCol: {
-    flex: 1,
-    marginRight: 8,
   },
   emptyCard: {
     borderWidth: 1,

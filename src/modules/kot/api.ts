@@ -6,6 +6,7 @@ import {
   CreateKotPayload,
   UpdateKotPayload,
   KotStatus,
+  InHouseRoomOption,
 } from "../../api/types";
 
 export async function fetchKotList(status?: KotStatus): Promise<Kot[]> {
@@ -14,6 +15,10 @@ export async function fetchKotList(status?: KotStatus): Promise<Kot[]> {
 
 export async function fetchKotDetail(id: number): Promise<KotDetailResponse> {
   return kotApi.getKotById(id);
+}
+
+export async function fetchInHouseRooms(companyid?: number): Promise<InHouseRoomOption[]> {
+  return kotApi.getInHouseRooms(companyid);
 }
 
 export async function createKot(payload: CreateKotPayload): Promise<KotDetailResponse> {

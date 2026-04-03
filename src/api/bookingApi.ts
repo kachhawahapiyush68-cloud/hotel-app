@@ -1,4 +1,3 @@
-// src/api/bookingApi.ts
 import { httpClient } from "./httpClient";
 
 export type BookingStatus =
@@ -26,6 +25,12 @@ export interface Booking {
   is_deleted: number;
   created_at: string;
   updated_at: string;
+
+  folio_id?: number | null;
+  folio_no?: string | null;
+  room_no?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
 }
 
 export interface BookingCreateInput {
@@ -64,6 +69,11 @@ export interface CheckInResponse {
 export interface BookingBillingSummary {
   folios: any[];
   bills: any[];
+}
+
+export interface BookingBillResponse {
+  bill: any;
+  items: any[];
 }
 
 export const bookingApi = {
@@ -142,4 +152,12 @@ export const bookingApi = {
     );
     return res.data;
   },
-}; 
+
+  async createBillFromBooking(bookingId: number): Promise<BookingBillResponse> {
+    const res = await httpClient.post<BookingBillResponse>("/bills/from-booking", {
+      booking_id: bookingId,
+      bill_type: "Room",
+    });
+    return res.data;
+  },
+};

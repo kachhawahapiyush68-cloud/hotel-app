@@ -1,4 +1,3 @@
-// src/modules/booking/BookingListScreen.tsx
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -86,7 +85,6 @@ const BookingListScreen: React.FC = () => {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* Top bar */}
       <View
         style={{
           flexDirection: "row",
@@ -122,7 +120,6 @@ const BookingListScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Date range filter */}
       <View style={{ paddingHorizontal: 12, paddingBottom: 4 }}>
         <DateRangeFilter
           startDate={startDate}
@@ -175,7 +172,6 @@ const BookingListScreen: React.FC = () => {
                 })
               }
             >
-              {/* Colored top strip */}
               <View
                 style={{
                   height: 4,
@@ -190,7 +186,6 @@ const BookingListScreen: React.FC = () => {
                   paddingVertical: 10,
                 }}
               >
-                {/* Row: room + status */}
                 <View
                   style={{
                     flexDirection: "row",
@@ -237,7 +232,6 @@ const BookingListScreen: React.FC = () => {
                   </View>
                 </View>
 
-                {/* Dates */}
                 <View style={{ marginTop: 4, marginBottom: 6 }}>
                   <View
                     style={{ flexDirection: "row", alignItems: "center" }}
@@ -281,7 +275,6 @@ const BookingListScreen: React.FC = () => {
                   </View>
                 </View>
 
-                {/* Guest / meta */}
                 <View
                   style={{
                     flexDirection: "row",

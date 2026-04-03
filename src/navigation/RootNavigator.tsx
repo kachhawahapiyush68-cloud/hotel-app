@@ -1,4 +1,3 @@
-// src/navigation/RootNavigator.tsx
 import React from "react";
 import {
   NavigationContainer,
@@ -29,6 +28,7 @@ import QuickReservationScreen from "../modules/booking/QuickReservationScreen";
 import ArrivalListScreen from "../modules/booking/ArrivalListScreen";
 
 import StayViewScreen from "../modules/stayView/StayViewScreen";
+import AddChargeScreen from "../modules/stayView/AddChargeScreen";
 
 import KotListScreen from "../modules/kot/KotListScreen";
 import KotEntryScreen from "../modules/kot/KotEntryScreen";
@@ -59,19 +59,34 @@ export type RootStackParamList = {
   ArrivalList: undefined;
 
   StayView: undefined;
+  AddCharge: {
+    bookingId: number;
+    folioId: number;
+    roomId: number;
+  };
 
   KOTList: undefined;
-  KotEntry: { kotId?: number } | undefined;
+  KotEntry:
+    | {
+        kotId?: number;
+        booking_id?: number;
+        room_id?: number;
+        table_no?: string;
+        service_type?: "TABLE" | "ROOM";
+      }
+    | undefined;
 
   BillList: undefined;
   BillDetail: { billId: number };
-  BillFromKot: {
-    kotIds: number[];
-    bookingId?: number;
-    guestId?: number;
-    folioId?: number;
-    roomId?: number;
-  };
+  BillFromKot:
+    | {
+        kotIds?: number[];
+        bookingId?: number;
+        guestId?: number;
+        folioId?: number;
+        roomId?: number;
+      }
+    | undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -96,7 +111,12 @@ const RootNavigator: React.FC = () => {
 
   return (
     <NavigationContainer theme={navTheme}>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+          animation: "slide_from_right",
+        }}
+      >
         {!user ? (
           <Stack.Screen name="AuthStack" component={AuthStack} />
         ) : (
@@ -121,12 +141,11 @@ const RootNavigator: React.FC = () => {
             <Stack.Screen name="ArrivalList" component={ArrivalListScreen} />
 
             <Stack.Screen name="StayView" component={StayViewScreen} />
+            <Stack.Screen name="AddCharge" component={AddChargeScreen} />
 
-            {/* KOT stack screens */}
             <Stack.Screen name="KOTList" component={KotListScreen} />
             <Stack.Screen name="KotEntry" component={KotEntryScreen} />
 
-            {/* Bill stack screens */}
             <Stack.Screen name="BillList" component={BillListScreen} />
             <Stack.Screen name="BillDetail" component={BillDetailScreen} />
             <Stack.Screen name="BillFromKot" component={BillFromKotScreen} />

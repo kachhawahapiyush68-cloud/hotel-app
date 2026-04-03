@@ -1,71 +1,97 @@
-// src/modules/bill/components/BillItemRow.tsx
 import React from "react";
-import { View, Text } from "react-native";
-import { BillItem } from "../../../api/billApi";
+import { View, Text, StyleSheet } from "react-native";
+import { BillItem } from "../types";
+import { formatNumber } from "../../../shared/utils/number";
 import { useThemeStore } from "../../../store/themeStore";
 
 type Props = {
   item: BillItem;
+  index: number;
 };
 
-const BillItemRow: React.FC<Props> = ({ item }) => {
+const BillItemRow: React.FC<Props> = ({ item, index }) => {
   const { theme } = useThemeStore();
-  const colors = theme.colors;
-
-  const money = (v: any) => {
-    const n = Number(v || 0);
-    if (Number.isNaN(n)) return "0.00";
-    return n.toFixed(2);
-  };
 
   return (
     <View
-      style={{
-        flexDirection: "row",
-        justifyContent: "space-between",
-        paddingVertical: 10,
-        borderBottomWidth: 0.5,
-        borderBottomColor: colors.border || "#E5E7EB",
-      }}
+      style={[
+        styles.card,
+        {
+          backgroundColor: theme.colors.surface,
+          borderColor: theme.colors.border,
+        },
+      ]}
     >
-      <View style={{ flex: 1, paddingRight: 10 }}>
-        <Text
-          style={{
-            color: colors.text,
-            fontSize: 14,
-            fontWeight: "600",
-          }}
-        >
-          {item.source_type || "Item"}
+      <View style={styles.topRow}>
+        <Text style={[styles.title, { color: theme.colors.text }]}>
+          {index + 1}. {item.product_name || `Product #${item.product_id}`}
         </Text>
-        <Text
-          style={{
-            color: colors.textSecondary,
-            fontSize: 12,
-            marginTop: 2,
-          }}
-        >
-          Product ID: {item.product_id}
+        <Text style={[styles.amount, { color: theme.colors.primary }]}>
+          ₹ {formatNumber(item.amount || 0, 2)}
         </Text>
       </View>
 
-      <View style={{ alignItems: "flex-end" }}>
-        <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-          Qty: {item.qty} × {money(item.rate)}
+      <View style={styles.metaRow}>
+        <Text style={[styles.meta, { color: theme.colors.textSecondary }]}>
+          Qty: {formatNumber(item.qty || 0, 2)}
         </Text>
-        <Text
-          style={{
-            color: colors.text,
-            fontSize: 14,
-            fontWeight: "700",
-            marginTop: 2,
-          }}
-        >
-          ₹ {money(item.amount)}
+        <Text style={[styles.meta, { color: theme.colors.textSecondary }]}>
+          Rate: ₹ {formatNumber(item.rate || 0, 2)}
         </Text>
       </View>
+
+      <View style={styles.metaRow}>
+        <Text style={[styles.meta, { color: theme.colors.textSecondary }]}>
+          Source: {item.source_type}
+        </Text>
+        {item.source_ref_id ? (
+          <Text style={[styles.meta, { color: theme.colors.textSecondary }]}>
+            Ref: {item.source_ref_id}
+          </Text>
+        ) : null}
+      </View>
+
+      {item.unit ? (
+        <Text style={[styles.meta, { color: theme.colors.textSecondary }]}>
+          Unit: {item.unit}
+        </Text>
+      ) : null}
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  card: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+  },
+  topRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 8,
+  },
+  title: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "700",
+    marginRight: 12,
+  },
+  amount: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  metaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginBottom: 4,
+  },
+  meta: {
+    marginRight: 14,
+    fontSize: 13,
+  },
+});
 
 export default BillItemRow;

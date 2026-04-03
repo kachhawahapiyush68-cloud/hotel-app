@@ -6,6 +6,7 @@ import {
   CreateKotPayload,
   UpdateKotPayload,
   KotStatus,
+  InHouseRoomOption,
 } from "./types";
 
 export interface KotListParams {
@@ -24,6 +25,13 @@ export const kotApi = {
     return res.data;
   },
 
+  async getInHouseRooms(companyid?: number): Promise<InHouseRoomOption[]> {
+    const res = await httpClient.get<InHouseRoomOption[]>("/kots/in-house-rooms", {
+      params: companyid ? { companyid } : undefined,
+    });
+    return res.data;
+  },
+
   async createKot(payload: CreateKotPayload): Promise<KotDetailResponse> {
     const res = await httpClient.post<KotDetailResponse>("/kots", payload);
     return res.data;
@@ -35,9 +43,7 @@ export const kotApi = {
   },
 
   async updateKotStatus(id: number, status: KotStatus): Promise<KotDetailResponse> {
-    const res = await httpClient.patch<KotDetailResponse>(`/kots/${id}/status`, {
-      status,
-    });
+    const res = await httpClient.patch<KotDetailResponse>(`/kots/${id}/status`, { status });
     return res.data;
   },
 

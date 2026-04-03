@@ -22,7 +22,6 @@ export interface Kot {
   created_at?: string;
   updated_at?: string;
 
-  // joined / extra fields
   company_name?: string;
   first_name?: string | null;
   last_name?: string | null;
@@ -45,7 +44,6 @@ export interface KotItem {
   created_at?: string;
   updated_at?: string;
 
-  // joined product fields
   product_name?: string;
   product_code?: string | null;
   unit?: string | null;
@@ -56,24 +54,14 @@ export interface KotDetailResponse {
   items: KotItem[];
 }
 
-/**
- * Frontend item used in create/update payloads
- * Note: backend expects "remarks" field, we keep "notes" in UI and map it.
- */
 export interface CreateKotItemInput {
   product_id: number;
   qty: number;
   rate_at_time?: number;
-  remarks?: string | null; // we will map from notes in UI
+  remarks?: string | null;
   status?: KotItemStatus;
 }
 
-/**
- * Create payload according to backend:
- * - It derives service_type from your explicit field
- * - It derives guest_id/folio_id/etc. based on booking_id/room_id
- * - company_id is optional for non SUPER_ADMIN, backend fills it from token
- */
 export interface CreateKotPayload {
   company_id?: number;
   kot_datetime?: string;
@@ -81,14 +69,11 @@ export interface CreateKotPayload {
   table_no?: string | null;
   room_id?: number | null;
   booking_id?: number | null;
-  status?: KotStatus;
+  status?: KotStatus; // normally omitted on create → backend defaults to Open
   notes?: string | null;
   items: CreateKotItemInput[];
 }
 
-/**
- * Update payload (for /kots/:id PUT)
- */
 export interface UpdateKotPayload {
   kot_datetime?: string;
   service_type?: KotServiceType;
@@ -98,4 +83,17 @@ export interface UpdateKotPayload {
   status?: KotStatus;
   notes?: string | null;
   items?: CreateKotItemInput[];
+}
+
+export interface InHouseRoomOption {
+  booking_id: number;
+  guest_id: number | null;
+  room_id: number | null;
+  room_no: string | null;
+  guest_name: string | null;
+  folio_id: number | null;
+  folio_no: string | null;
+  reservation_no: string | null;
+  check_in_datetime?: string | null;
+  display_label: string;
 }
