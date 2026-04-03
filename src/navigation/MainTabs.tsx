@@ -1,3 +1,4 @@
+// src/navigation/MainTabs.tsx
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import Ionicons from "react-native-vector-icons/Ionicons";
@@ -8,7 +9,7 @@ import MastersScreen from "../modules/masters/MastersScreen";
 import KotListScreen from "../modules/kot/KotListScreen";
 import BillListScreen from "../modules/bill/BillListScreen";
 import BookingListScreen from "../modules/booking/BookingListScreen";
-import StayViewScreen from "../modules/stayView/StayViewScreen";
+import InHouseListScreen from "../modules/stayView/InHouseListScreen";
 import { useThemeStore } from "../store/themeStore";
 import { useAuthStore } from "../store/authStore";
 import { normalizeRole } from "../shared/utils/role";
@@ -19,7 +20,7 @@ export type MainTabParamList = {
   Bookings: undefined;
   KOT: undefined;
   Bills: undefined;
-  StayView: undefined;
+  Stays: undefined;
 };
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -28,30 +29,32 @@ const MainTabs: React.FC = () => {
   const { theme } = useThemeStore();
   const user = useAuthStore((s) => s.user);
   const role = normalizeRole(user?.role);
+  const colors = theme.colors;
 
   const showMasters = role === "ADMIN" || role === "SUPER_ADMIN";
 
-  const colors = theme.colors;
-
-  const renderHeaderTitle = (title: string) => () => (
-    <View style={{ flexDirection: "row", alignItems: "center" }}>
-      <Ionicons
-        name="bed-outline"
-        size={20}
-        color={colors.primary}
-        style={{ marginRight: 6 }}
-      />
-      <Text
-        style={{
-          color: colors.text,
-          fontSize: 18,
-          fontWeight: "600",
-        }}
-      >
-        {title}
-      </Text>
-    </View>
-  );
+  const renderHeaderTitle =
+    (title: string) =>
+    () =>
+      (
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <Ionicons
+            name="bed-outline"
+            size={20}
+            color={colors.primary}
+            style={{ marginRight: 6 }}
+          />
+          <Text
+            style={{
+              color: colors.text,
+              fontSize: 18,
+              fontWeight: "600",
+            }}
+          >
+            {title}
+          </Text>
+        </View>
+      );
 
   return (
     <Tab.Navigator
@@ -74,25 +77,25 @@ const MainTabs: React.FC = () => {
             ? "Bookings"
             : route.name === "KOT"
             ? "Kitchen Orders"
-            : route.name === "StayView"
+            : route.name === "Stays"
             ? "Stay View"
             : "Bills"
         ),
         tabBarStyle: {
-          backgroundColor: colors.tabBarBg,
+          backgroundColor: colors.tabBarBg || colors.surface,
           borderTopColor: colors.border,
         },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarIcon: ({ color, size }) => {
-          let icon: string = "home";
+          let icon: string = "home-outline";
 
-          if (route.name === "Dashboard") icon = "home";
+          if (route.name === "Dashboard") icon = "home-outline";
           else if (route.name === "Masters") icon = "albums-outline";
           else if (route.name === "Bookings") icon = "bed-outline";
           else if (route.name === "KOT") icon = "restaurant-outline";
           else if (route.name === "Bills") icon = "receipt-outline";
-          else if (route.name === "StayView") icon = "person-circle-outline";
+          else if (route.name === "Stays") icon = "person-circle-outline";
 
           return <Ionicons name={icon as any} size={size} color={color} />;
         },
@@ -107,7 +110,11 @@ const MainTabs: React.FC = () => {
       <Tab.Screen name="Bookings" component={BookingListScreen} />
       <Tab.Screen name="KOT" component={KotListScreen} />
       <Tab.Screen name="Bills" component={BillListScreen} />
-      <Tab.Screen name="StayView" component={StayViewScreen} />
+      <Tab.Screen
+        name="Stays"
+        component={InHouseListScreen}
+        options={{ title: "Stay View" }}
+      />
     </Tab.Navigator>
   );
 };

@@ -22,17 +22,17 @@ export const RoomPicker: React.FC<Props> = ({ value, onChange }) => {
         const rooms = await roomApi.list();
         const data: SelectItem[] = rooms.map((r: any) => {
           const roomNo = r.room_no ?? `Room #${r.room_id}`;
-          const category =
-            r.category_name ||
-            r.category?.category_name ||
-            "";
-          const text = category ? `${roomNo} • ${category}` : roomNo;
+          const category = r.category_name || r.category?.category_name || "";
+          const status = r.status ? ` • ${r.status}` : "";
+          const text = category
+            ? `${roomNo} • ${category}${status}`
+            : `${roomNo}${status}`;
           return { value: r.room_id, label: text };
         });
         setItems(data);
 
         if (value) {
-          const current = data.find((x) => x.value === value);
+          const current = data.find((x) => Number(x.value) === Number(value));
           if (current) setLabel(current.label);
         }
       } catch (e) {
@@ -44,7 +44,7 @@ export const RoomPicker: React.FC<Props> = ({ value, onChange }) => {
 
   useEffect(() => {
     if (!value || items.length === 0) return;
-    const current = items.find((x) => x.value === value);
+    const current = items.find((x) => Number(x.value) === Number(value));
     if (current) setLabel(current.label);
   }, [value, items]);
 

@@ -1,3 +1,4 @@
+// src/modules/booking/store.ts
 import { create } from "zustand";
 import {
   bookingApi,
@@ -24,7 +25,14 @@ type BookingState = {
   update: (id: number, input: BookingUpdateInput) => Promise<Booking | null>;
 
   fetchTodayArrivals: (date?: string) => Promise<void>;
+  fetchReservationsInRange: (from: string, to: string) => Promise<void>;
+
   setCurrentFromCheckIn: (booking: Booking, resp: CheckInResponse) => void;
+  setCurrentManual: (
+    booking: Booking,
+    folio: { folio_id: number; folio_no: string }
+  ) => void;
+  clearCurrent: () => void;
 };
 
 export const useBookingStore = create<BookingState>((set, get) => ({
@@ -39,6 +47,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
   async fetch() {
     try {
       set({ loading: true, error: null });
+
       const auth = useAuthStore.getState();
       const user = auth.user;
       const roleUpper = normalizeRole(user?.role);
@@ -53,13 +62,18 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     } catch (e: any) {
       set({
         loading: false,
-        error: e?.message || "Failed to load bookings",
+        error:
+          e?.response?.data?.message ||
+          e?.message ||
+          "Failed to load bookings",
       });
     }
   },
 
   async create(input: BookingCreateInput) {
     try {
+      set({ error: null });
+
       const auth = useAuthStore.getState();
       const user = auth.user;
       const roleUpper = normalizeRole(user?.role);
@@ -78,22 +92,33 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       set({ items: [created, ...get().items] });
       return created;
     } catch (e: any) {
-      set({ error: e?.message || "Failed to create booking" });
+      set({
+        error:
+          e?.response?.data?.message ||
+          e?.message ||
+          "Failed to create booking",
+      });
       return null;
     }
   },
 
   async update(id: number, input: BookingUpdateInput) {
     try {
+      set({ error: null });
+
       const updated = await bookingApi.update(id, input);
       set({
-        items: get().items.map((b) =>
-          b.booking_id === id ? updated : b
-        ),
+        items: get().items.map((b) => (b.booking_id === id ? updated : b)),
+        arrivals: get().arrivals.map((b) => (b.booking_id === id ? updated : b)),
       });
       return updated;
     } catch (e: any) {
-      set({ error: e?.message || "Failed to update booking" });
+      set({
+        error:
+          e?.response?.data?.message ||
+          e?.message ||
+          "Failed to update booking",
+      });
       return null;
     }
   },
@@ -102,27 +127,35 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     try {
       set({ loading: true, error: null });
 
-      const auth = useAuthStore.getState();
-      const user = auth.user;
-      const roleUpper = normalizeRole(user?.role);
-      const companyIdParam =
-        roleUpper === "SUPER_ADMIN"
-          ? auth.selectedCompanyId
-          : user?.companyid;
+      const target = date ?? new Date().toISOString().slice(0, 10);
+      const arrivals = await bookingApi.arrivals({ date: target });
 
-      const all = await bookingApi.list(companyIdParam);
-      const target = date ?? new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
-
-      const filtered = all.filter((b) => {
-        const d = b.check_in_datetime.slice(0, 10);
-        return d === target;
-      });
-
-      set({ arrivals: filtered, loading: false });
+      set({ arrivals, loading: false });
     } catch (e: any) {
       set({
         loading: false,
-        error: e?.message || "Failed to load arrivals",
+        error:
+          e?.response?.data?.message ||
+          e?.message ||
+          "Failed to load arrivals",
+      });
+    }
+  },
+
+  async fetchReservationsInRange(from: string, to: string) {
+    try {
+      set({ loading: true, error: null });
+
+      const data = await bookingApi.reservations({ from, to });
+
+      set({ items: data, loading: false });
+    } catch (e: any) {
+      set({
+        loading: false,
+        error:
+          e?.response?.data?.message ||
+          e?.message ||
+          "Failed to load reservations",
       });
     }
   },
@@ -134,6 +167,20 @@ export const useBookingStore = create<BookingState>((set, get) => ({
         folio_id: resp.folio_id,
         folio_no: resp.folio_no,
       },
+    });
+  },
+
+  setCurrentManual(booking, folio) {
+    set({
+      currentBooking: booking,
+      currentFolio: folio,
+    });
+  },
+
+  clearCurrent() {
+    set({
+      currentBooking: null,
+      currentFolio: null,
     });
   },
 }));

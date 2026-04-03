@@ -1,3 +1,4 @@
+// src/modules/booking/BookingListScreen.tsx
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -13,20 +14,29 @@ import { useThemeStore } from "../../store/themeStore";
 import Card from "../../shared/components/Card";
 import Loader from "../../shared/components/Loader";
 import AppButton from "../../shared/components/AppButton";
-import { formatDateTime } from "../../shared/utils/date";
+import { formatDateTime, toIsoDate } from "../../shared/utils/date";
 import { roomApi } from "../../api/roomApi";
+import DateRangeFilter from "./components/DateRangeFilter";
 
 type RoomLookup = Record<number, string>;
 
 const BookingListScreen: React.FC = () => {
   const { theme } = useThemeStore();
   const navigation = useNavigation<any>();
-  const { items, loading, fetch } = useBookingStore();
+  const {
+    items,
+    loading,
+    fetchReservationsInRange,
+  } = useBookingStore();
   const [rooms, setRooms] = useState<RoomLookup>({});
 
+  const todayIso = toIsoDate(new Date());
+  const [startDate, setStartDate] = useState<string>(todayIso);
+  const [endDate, setEndDate] = useState<string>(todayIso);
+
   useEffect(() => {
-    fetch();
-  }, [fetch]);
+    fetchReservationsInRange(startDate, endDate);
+  }, [fetchReservationsInRange, startDate, endDate]);
 
   useEffect(() => {
     const loadRooms = async () => {
@@ -68,6 +78,12 @@ const BookingListScreen: React.FC = () => {
     }
   };
 
+  const handleRangeChange = (start: string, end: string) => {
+    setStartDate(start);
+    setEndDate(end);
+    fetchReservationsInRange(start, end);
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Top bar */}
@@ -106,13 +122,25 @@ const BookingListScreen: React.FC = () => {
         </View>
       </View>
 
+      {/* Date range filter */}
+      <View style={{ paddingHorizontal: 12, paddingBottom: 4 }}>
+        <DateRangeFilter
+          startDate={startDate}
+          endDate={endDate}
+          onChange={handleRangeChange}
+        />
+      </View>
+
       <FlatList
         data={items}
         key={numColumns}
         numColumns={numColumns}
         keyExtractor={(item) => String(item.booking_id)}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={fetch} />
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={() => fetchReservationsInRange(startDate, endDate)}
+          />
         }
         contentContainerStyle={{
           paddingHorizontal: 12,

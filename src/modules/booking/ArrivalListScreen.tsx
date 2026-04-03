@@ -1,3 +1,4 @@
+// src/modules/booking/ArrivalListScreen.tsx
 import React, { useEffect } from "react";
 import {
   View,
@@ -12,14 +13,11 @@ import { toIsoDate } from "../../shared/utils/date";
 import { bookingApi, Booking } from "../../api/bookingApi";
 import { useBookingStore } from "./store";
 import ArrivalCard from "./components/ArrivalCard";
-import { useAuthStore } from "../../store/authStore";
-import { normalizeRole } from "../../shared/utils/role";
+import { useNavigation } from "@react-navigation/native";
 
 const ArrivalListScreen: React.FC = () => {
   const { theme } = useThemeStore();
-  const auth = useAuthStore();
-  const user = auth.user;
-  const roleUpper = normalizeRole(user?.role);
+  const navigation = useNavigation<any>();
 
   const { setCurrentFromCheckIn } = useBookingStore();
 
@@ -35,20 +33,10 @@ const ArrivalListScreen: React.FC = () => {
     try {
       setState((s) => ({ ...s, loadingLocal: true }));
 
-      const companyIdParam =
-        roleUpper === "SUPER_ADMIN"
-          ? auth.selectedCompanyId
-          : user?.companyid;
-
-      const all = await bookingApi.list(companyIdParam);
       const todayIso = toIsoDate(new Date()); // "YYYY-MM-DD"
+      const arrivals = await bookingApi.arrivals({ date: todayIso });
 
-      const filtered = all.filter((b) => {
-        const d = b.check_in_datetime.slice(0, 10);
-        return d === todayIso;
-      });
-
-      setState({ loadingLocal: false, arrivalsLocal: filtered });
+      setState({ loadingLocal: false, arrivalsLocal: arrivals });
     } catch (e: any) {
       setState((s) => ({ ...s, loadingLocal: false }));
       Alert.alert("Error", e?.message || "Failed to load arrivals");
@@ -57,7 +45,6 @@ const ArrivalListScreen: React.FC = () => {
 
   useEffect(() => {
     loadArrivals();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleRefresh = () => {
@@ -68,8 +55,7 @@ const ArrivalListScreen: React.FC = () => {
     try {
       const resp = await bookingApi.checkIn(booking.booking_id, roomId);
       setCurrentFromCheckIn(booking, resp);
-      Alert.alert("Checked in", `Folio: ${resp.folio_no}`);
-      loadArrivals();
+      navigation.navigate("StayView");
     } catch (e: any) {
       console.log("CheckIn error", e?.response?.data || e);
       const msg =

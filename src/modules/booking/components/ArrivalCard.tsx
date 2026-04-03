@@ -1,3 +1,4 @@
+// src/modules/booking/components/ArrivalCard.tsx
 import React, { useState } from "react";
 import { View, Text, TouchableOpacity, Alert } from "react-native";
 import Card from "../../../shared/components/Card";
@@ -23,7 +24,7 @@ const ArrivalCard: React.FC<Props> = ({ booking, onCheckIn }) => {
     if (!roomToUse || roomToUse === 0) {
       Alert.alert(
         "No room selected",
-        "Please assign a room to this booking (use the picker above) before check‑in."
+        "Please assign a room to this booking before check-in."
       );
       return;
     }
@@ -38,9 +39,7 @@ const ArrivalCard: React.FC<Props> = ({ booking, onCheckIn }) => {
       subtitle={`Guest ID: ${booking.guest_id}`}
     >
       <View style={{ marginTop: 4 }}>
-        <Text
-          style={{ color: theme.colors.textSecondary, fontSize: 12 }}
-        >
+        <Text style={{ color: theme.colors.textSecondary, fontSize: 12 }}>
           Current room id: {booking.room_id || "-"}
         </Text>
       </View>

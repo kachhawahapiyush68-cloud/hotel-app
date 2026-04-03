@@ -1,102 +1,211 @@
 // src/modules/bill/BillListScreen.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from "react";
 import {
   View,
-  Text,
   FlatList,
-  StyleSheet,
-  ActivityIndicator,
-} from 'react-native';
-import { fetchBills, Bill } from '../../api/billApi';
-import { API_BASE_URL } from '../../config/env';
+  RefreshControl,
+  Text,
+  TouchableOpacity,
+  Alert,
+} from "react-native";
+import { useThemeStore } from "../../store/themeStore";
+import Loader from "../../shared/components/Loader";
+import Card from "../../shared/components/Card";
+import { useBillStore } from "./store";
+import { useNavigation } from "@react-navigation/native";
+import { formatDateTime } from "../../shared/utils/date";
 
-export default function BillListScreen() {
-  const [bills, setBills] = useState<Bill[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+const BillListScreen: React.FC = () => {
+  const { theme } = useThemeStore();
+  const navigation = useNavigation<any>();
+  const { items, loading, fetch, remove } = useBillStore();
+  const colors = theme.colors;
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await fetchBills();
-        setBills(data);
-      } catch (err: any) {
-        console.log('BILLS ERROR:', err?.response?.status, err?.response?.data);
-        setError('Unable to load bills');
-      } finally {
-        setLoading(false);
-      }
+    fetch();
+  }, [fetch]);
+
+  const handleRefresh = () => {
+    fetch();
+  };
+
+  const handleDelete = (id: number) => {
+    Alert.alert(
+      "Delete bill",
+      "Are you sure you want to delete this bill?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            const ok = await remove(id);
+            if (!ok) {
+              Alert.alert("Error", "Failed to delete bill");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const formatMoney = (v: any) => {
+    const n = Number(v || 0);
+    if (Number.isNaN(n)) return "0.00";
+    return n.toFixed(2);
+  };
+
+  const getStatusColors = (status: string) => {
+    if (status === "Paid") {
+      return {
+        bg: colors.successSoft || "#DCFCE7",
+        text: colors.success || "#16A34A",
+      };
+    }
+
+    if (status === "PartiallyPaid") {
+      return {
+        bg: colors.infoSoft || "#DBEAFE",
+        text: colors.info || "#2563EB",
+      };
+    }
+
+    return {
+      bg: colors.warningSoft || "#FEF3C7",
+      text: colors.warning || "#D97706",
     };
-    load();
-  }, []);
+  };
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#1D4ED8" />
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.error}>{error}</Text>
-        <Text style={styles.small}>API: {API_BASE_URL}/bills</Text>
-      </View>
-    );
+  if (loading && items.length === 0) {
+    return <Loader />;
   }
 
   return (
-    <View style={styles.container}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <FlatList
-        data={bills}
+        data={items}
         keyExtractor={(item) => String(item.bill_id)}
+        refreshControl={
+          <RefreshControl refreshing={loading} onRefresh={handleRefresh} />
+        }
+        contentContainerStyle={{ padding: 12, paddingBottom: 24 }}
         renderItem={({ item }) => {
-          const amount =
-            typeof item.amount === 'number' ? item.amount : 0;
+          const statusColors = getStatusColors(String(item.payment_status));
 
           return (
-            <View style={styles.row}>
-              <View>
-                <Text style={styles.billNo}>Bill #{item.bill_no}</Text>
-                {!!item.status && (
-                  <Text style={styles.status}>{item.status}</Text>
-                )}
+            <Card
+              style={{ marginBottom: 10 }}
+              onPress={() =>
+                navigation.navigate("BillDetail", { billId: item.bill_id })
+              }
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <Text
+                  style={{
+                    color: colors.text,
+                    fontSize: 16,
+                    fontWeight: "700",
+                  }}
+                >
+                  Bill #{item.bill_no}
+                </Text>
+
+                <View
+                  style={{
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    borderRadius: 999,
+                    backgroundColor: statusColors.bg,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: statusColors.text,
+                      fontSize: 11,
+                      fontWeight: "700",
+                    }}
+                  >
+                    {item.payment_status}
+                  </Text>
+                </View>
               </View>
-              <Text style={styles.amount}>{amount.toFixed(2)}</Text>
-            </View>
+
+              <Text
+                style={{
+                  color: colors.textSecondary,
+                  fontSize: 12,
+                  marginTop: 4,
+                }}
+              >
+                {formatDateTime(item.bill_datetime)}
+              </Text>
+
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  marginTop: 8,
+                }}
+              >
+                <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                  Type: {item.bill_type}
+                </Text>
+                <Text
+                  style={{
+                    color: colors.text,
+                    fontSize: 15,
+                    fontWeight: "700",
+                  }}
+                >
+                  ₹ {formatMoney(item.net_amount)}
+                </Text>
+              </View>
+
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  marginTop: 8,
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                  Booking: {item.booking_id ?? "-"} | Room: {item.room_id ?? "-"}
+                </Text>
+
+                <TouchableOpacity onPress={() => handleDelete(item.bill_id)}>
+                  <Text
+                    style={{
+                      color: colors.danger || "#EF4444",
+                      fontSize: 12,
+                      fontWeight: "700",
+                    }}
+                  >
+                    Delete
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </Card>
           );
         }}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListEmptyComponent={
-          <View style={styles.center}>
-            <Text>No bills found</Text>
-          </View>
+          !loading ? (
+            <View style={{ padding: 20, alignItems: "center" }}>
+              <Text style={{ color: colors.textSecondary }}>
+                No bills found.
+              </Text>
+            </View>
+          ) : null
         }
       />
     </View>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  error: { color: '#DC2626', marginBottom: 4 },
-  small: { fontSize: 10, color: '#6B7280' },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-  },
-  separator: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-    marginHorizontal: 16,
-  },
-  billNo: { fontSize: 16, fontWeight: '600', color: '#111827' },
-  status: { fontSize: 12, color: '#6B7280', marginTop: 2 },
-  amount: { fontSize: 16, fontWeight: '700', color: '#1D4ED8' },
-});
+export default BillListScreen;

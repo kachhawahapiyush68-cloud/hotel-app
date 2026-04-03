@@ -1,5 +1,6 @@
-import React, { useState } from "react";
-import { View } from "react-native";
+// src/modules/booking/components/BookingForm.tsx
+import React, { useMemo, useState } from "react";
+import { Alert, View } from "react-native";
 import AppInput from "../../../shared/components/AppInput";
 import AppButton from "../../../shared/components/AppButton";
 import { useThemeStore } from "../../../store/themeStore";
@@ -15,6 +16,15 @@ type Props = {
   submitting?: boolean;
 };
 
+const defaultCheckInTime = "14:00";
+const defaultCheckOutTime = "11:00";
+
+const extractTime = (datetime?: string, fallback = "00:00") => {
+  if (!datetime) return fallback;
+  const m = String(datetime).match(/(\d{2}):(\d{2})/);
+  return m ? `${m[1]}:${m[2]}` : fallback;
+};
+
 const BookingForm: React.FC<Props> = ({
   initial = {},
   onSubmit,
@@ -22,34 +32,38 @@ const BookingForm: React.FC<Props> = ({
 }) => {
   const { theme } = useThemeStore();
 
-  const [guestId, setGuestId] = useState<number | undefined>(
-    initial.guest_id
-  );
-  const [roomId, setRoomId] = useState<number | undefined>(
-    initial.room_id
+  const [guestId, setGuestId] = useState<number | undefined>(initial.guest_id);
+  const [roomId, setRoomId] = useState<number | undefined>(initial.room_id);
+
+  const initialStartDate = useMemo(
+    () =>
+      initial.check_in_datetime
+        ? toIsoDate(initial.check_in_datetime)
+        : toIsoDate(new Date()),
+    [initial.check_in_datetime]
   );
 
-  const [startDate, setStartDate] = useState<string>(
-    initial.check_in_datetime
-      ? toIsoDate(initial.check_in_datetime)
-      : toIsoDate(new Date())
-  );
-  const [endDate, setEndDate] = useState<string>(
-    initial.check_out_datetime
-      ? toIsoDate(initial.check_out_datetime)
-      : toIsoDate(new Date())
+  const initialEndDate = useMemo(
+    () =>
+      initial.check_out_datetime
+        ? toIsoDate(initial.check_out_datetime)
+        : toIsoDate(new Date()),
+    [initial.check_out_datetime]
   );
 
-  const [checkInTime, setCheckInTime] = useState<string>("14:00");
-  const [checkOutTime, setCheckOutTime] = useState<string>("11:00");
+  const [startDate, setStartDate] = useState<string>(initialStartDate);
+  const [endDate, setEndDate] = useState<string>(initialEndDate);
+
+  const [checkInTime, setCheckInTime] = useState<string>(
+    extractTime(initial.check_in_datetime, defaultCheckInTime)
+  );
+  const [checkOutTime, setCheckOutTime] = useState<string>(
+    extractTime(initial.check_out_datetime, defaultCheckOutTime)
+  );
 
   const [nights, setNights] = useState(String(initial.nights ?? 1));
-  const [numAdult, setNumAdult] = useState(
-    String(initial.num_adult ?? 1)
-  );
-  const [numChild, setNumChild] = useState(
-    String(initial.num_child ?? 0)
-  );
+  const [numAdult, setNumAdult] = useState(String(initial.num_adult ?? 1));
+  const [numChild, setNumChild] = useState(String(initial.num_child ?? 0));
 
   const handleRangeChange = (start: string, end: string) => {
     setStartDate(start);
@@ -63,8 +77,40 @@ const BookingForm: React.FC<Props> = ({
     return toMysqlDateTime(dt);
   };
 
+  const isValidTime = (value: string) => {
+    return /^([01]\d|2[0-3]):([0-5]\d)$/.test(value);
+  };
+
   const handleSubmit = () => {
-    if (!guestId || !roomId) return;
+    if (!guestId) {
+      Alert.alert("Validation", "Please select a guest");
+      return;
+    }
+
+    if (!roomId) {
+      Alert.alert("Validation", "Please select a room");
+      return;
+    }
+
+    if (!startDate || !endDate) {
+      Alert.alert("Validation", "Please select stay dates");
+      return;
+    }
+
+    if (!isValidTime(checkInTime)) {
+      Alert.alert("Validation", "Invalid check-in time. Use HH:mm");
+      return;
+    }
+
+    if (!isValidTime(checkOutTime)) {
+      Alert.alert("Validation", "Invalid check-out time. Use HH:mm");
+      return;
+    }
+
+    if (new Date(endDate) < new Date(startDate)) {
+      Alert.alert("Validation", "Check-out date cannot be before check-in date");
+      return;
+    }
 
     const checkInDT = buildDateTime(startDate, checkInTime);
     const checkOutDT = buildDateTime(endDate, checkOutTime);
@@ -78,6 +124,8 @@ const BookingForm: React.FC<Props> = ({
       num_adult: Number(numAdult) || 1,
       num_child: Number(numChild) || 0,
       status: initial.status,
+      reservation_no: initial.reservation_no ?? null,
+      company_id: initial.company_id,
     };
 
     onSubmit(payload);
@@ -124,12 +172,14 @@ const BookingForm: React.FC<Props> = ({
         keyboardType="numeric"
         onChangeText={setNights}
       />
+
       <AppInput
         label="Adults"
         value={numAdult}
         keyboardType="numeric"
         onChangeText={setNumAdult}
       />
+
       <AppInput
         label="Children"
         value={numChild}

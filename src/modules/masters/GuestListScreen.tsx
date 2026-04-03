@@ -30,6 +30,11 @@ const GuestListScreen: React.FC = () => {
   const [editing, setEditing] = useState<Guest | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const role = (user?.role || '').toUpperCase();
+  const isSuperAdmin = role === 'SUPER_ADMIN';
+  const isAdmin = role === 'ADMIN';
+  const canManage = isSuperAdmin || isAdmin; // can create/edit/delete
+
   const load = useCallback(async () => {
     try {
       setLoading(true);
@@ -52,11 +57,13 @@ const GuestListScreen: React.FC = () => {
   }, [isFocused, load]);
 
   const openCreate = () => {
+    if (!canManage) return;
     setEditing(null);
     setFormVisible(true);
   };
 
   const openEdit = (guest: Guest) => {
+    if (!canManage) return;
     setEditing(guest);
     setFormVisible(true);
   };
@@ -75,6 +82,11 @@ const GuestListScreen: React.FC = () => {
     gst_no?: string | null;
     remarks?: string | null;
   }) => {
+    if (!canManage) {
+      Alert.alert('Not allowed', 'You do not have permission to save guests.');
+      return;
+    }
+
     try {
       setSaving(true);
 
@@ -98,6 +110,7 @@ const GuestListScreen: React.FC = () => {
   };
 
   const confirmDelete = (guest: Guest) => {
+    if (!canManage) return;
     Alert.alert(
       'Delete guest',
       `Are you sure you want to delete ${guest.first_name || ''} ${guest.last_name || ''}?`,
@@ -113,6 +126,7 @@ const GuestListScreen: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
+    if (!canManage) return;
     try {
       await guestApi.remove(id);
       await load();
@@ -131,7 +145,7 @@ const GuestListScreen: React.FC = () => {
     return (
       <Card
         style={styles.card}
-        onPress={() => openEdit(item)}
+        onPress={canManage ? () => openEdit(item) : undefined}
         header={name || item.mobile || 'Guest'}
         subtitle={
           [
@@ -147,19 +161,21 @@ const GuestListScreen: React.FC = () => {
             : '')
         }
         footer={
-          <View style={styles.cardFooter}>
-            <AppButton
-              title="Edit"
-              size="small"
-              onPress={() => openEdit(item)}
-            />
-            <AppButton
-              title="Delete"
-              size="small"
-              variant="outline"
-              onPress={() => confirmDelete(item)}
-            />
-          </View>
+          canManage ? (
+            <View style={styles.cardFooter}>
+              <AppButton
+                title="Edit"
+                size="small"
+                onPress={() => openEdit(item)}
+              />
+              <AppButton
+                title="Delete"
+                size="small"
+                variant="outline"
+                onPress={() => confirmDelete(item)}
+              />
+            </View>
+          ) : null
         }
       />
     );
@@ -215,11 +231,13 @@ const GuestListScreen: React.FC = () => {
         {data.length} guest{data.length === 1 ? '' : 's'} found
       </Text>
 
-      <AppButton
-        title="Add Guest"
-        onPress={openCreate}
-        style={{ marginBottom: 8 }}
-      />
+      {canManage && (
+        <AppButton
+          title="Add Guest"
+          onPress={openCreate}
+          style={{ marginBottom: 8 }}
+        />
+      )}
 
       <FlatList
         data={data}

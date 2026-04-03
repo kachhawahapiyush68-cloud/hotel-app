@@ -7,8 +7,8 @@ import { toIsoDate } from "../../../shared/utils/date";
 import { useThemeStore } from "../../../store/themeStore";
 
 type Props = {
-  startDate: string;                      // "YYYY-MM-DD"
-  endDate: string;                        // "YYYY-MM-DD"
+  startDate: string;
+  endDate: string;
   onChange: (start: string, end: string) => void;
 };
 
@@ -20,15 +20,25 @@ const CalendarRangePicker: React.FC<Props> = ({
   const { theme } = useThemeStore();
   const [open, setOpen] = useState(false);
 
-  const handleDateChange = (date: any, type: "START_DATE" | "END_DATE") => {
+  const parseDate = (value?: string) => {
+    if (!value) return undefined;
+    const [y, m, d] = value.split("-").map(Number);
+    return new Date(y, (m || 1) - 1, d || 1);
+  };
+
+  const handleDateChange = (date: any, type?: "START_DATE" | "END_DATE") => {
     const jsDate: Date =
       date && typeof date.toDate === "function" ? date.toDate() : date;
+
+    if (!jsDate || Number.isNaN(jsDate.getTime())) return;
+
     const iso = toIsoDate(jsDate);
 
     if (type === "START_DATE") {
       onChange(iso, endDate || iso);
     } else {
       onChange(startDate || iso, iso);
+      setOpen(false);
     }
   };
 
@@ -72,11 +82,11 @@ const CalendarRangePicker: React.FC<Props> = ({
 
           <CalendarPicker
             allowRangeSelection
-            selectedStartDate={startDate}
-            selectedEndDate={endDate}
+            selectedStartDate={parseDate(startDate)}
+            selectedEndDate={parseDate(endDate)}
             onDateChange={handleDateChange}
             textStyle={{
-              color: colors.text,          // day numbers
+              color: colors.text,
               fontSize: 14,
             }}
             todayBackgroundColor={colors.primarySoft}
@@ -106,9 +116,7 @@ const CalendarRangePicker: React.FC<Props> = ({
               color: colors.textSecondary,
               fontSize: 14,
             }}
-            weekdays={
-              ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as any
-            }
+            weekdays={["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as any}
             weekdaysStyle={{
               color: colors.textSecondary,
               fontSize: 12,

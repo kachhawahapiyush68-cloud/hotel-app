@@ -50,6 +50,7 @@ export const guestApi = {
   },
 
   async create(payload: GuestPayload) {
+    // company_id comes from backend via token (req.user.companyid)
     const res = await httpClient.post<Guest>('/guests', payload);
     return res.data;
   },

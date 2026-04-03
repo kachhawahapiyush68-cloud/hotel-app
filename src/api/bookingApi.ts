@@ -1,3 +1,4 @@
+// src/api/bookingApi.ts
 import { httpClient } from "./httpClient";
 
 export type BookingStatus =
@@ -13,8 +14,8 @@ export interface Booking {
   reservation_no: string | null;
   guest_id: number;
   room_id: number;
-  check_in_datetime: string;   // "YYYY-MM-DD HH:mm:ss"
-  check_out_datetime: string;  // "YYYY-MM-DD HH:mm:ss"
+  check_in_datetime: string;
+  check_out_datetime: string;
   actual_check_in_datetime: string | null;
   actual_check_out_datetime: string | null;
   nights: number;
@@ -60,6 +61,11 @@ export interface CheckInResponse {
   folio_no: string;
 }
 
+export interface BookingBillingSummary {
+  folios: any[];
+  bills: any[];
+}
+
 export const bookingApi = {
   async list(companyid?: number): Promise<Booking[]> {
     const params = companyid ? { companyid } : undefined;
@@ -93,4 +99,47 @@ export const bookingApi = {
     );
     return res.data;
   },
-};
+
+  async reservations(params?: { from?: string; to?: string }): Promise<Booking[]> {
+    const res = await httpClient.get<Booking[]>("/bookings/reservations", {
+      params,
+    });
+    return res.data;
+  },
+
+  async arrivals(params?: { date?: string }): Promise<Booking[]> {
+    const res = await httpClient.get<Booking[]>("/bookings/arrivals", {
+      params,
+    });
+    return res.data;
+  },
+
+  async stayovers(params?: { date?: string }): Promise<Booking[]> {
+    const res = await httpClient.get<Booking[]>("/bookings/stayovers", {
+      params,
+    });
+    return res.data;
+  },
+
+  async departures(params?: { date?: string }): Promise<Booking[]> {
+    const res = await httpClient.get<Booking[]>("/bookings/departures", {
+      params,
+    });
+    return res.data;
+  },
+
+  async checkOut(id: number): Promise<{ booking_id: number }> {
+    const res = await httpClient.post<{ booking_id: number }>(
+      `/bookings/${id}/checkout`,
+      {}
+    );
+    return res.data;
+  },
+
+  async billing(bookingId: number): Promise<BookingBillingSummary> {
+    const res = await httpClient.get<BookingBillingSummary>(
+      `/bookings/${bookingId}/billing`
+    );
+    return res.data;
+  },
+}; 

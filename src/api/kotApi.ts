@@ -1,13 +1,47 @@
-// src/api/kotApi.ts
-import { httpClient } from './httpClient';
+// api/kotApi.ts
+import { httpClient } from "./httpClient";
+import {
+  Kot,
+  KotDetailResponse,
+  CreateKotPayload,
+  UpdateKotPayload,
+  KotStatus,
+} from "./types";
 
-export type Kot = {
-  kot_id: number;
-  table_no: string;
-  status: string;
-};
-
-export async function fetchKots(): Promise<Kot[]> {
-  const res = await httpClient.get<Kot[]>('/kots');
-  return res.data;
+export interface KotListParams {
+  status?: KotStatus;
+  companyid?: number;
 }
+
+export const kotApi = {
+  async getKots(params?: KotListParams): Promise<Kot[]> {
+    const res = await httpClient.get<Kot[]>("/kots", { params });
+    return res.data;
+  },
+
+  async getKotById(id: number): Promise<KotDetailResponse> {
+    const res = await httpClient.get<KotDetailResponse>(`/kots/${id}`);
+    return res.data;
+  },
+
+  async createKot(payload: CreateKotPayload): Promise<KotDetailResponse> {
+    const res = await httpClient.post<KotDetailResponse>("/kots", payload);
+    return res.data;
+  },
+
+  async updateKot(id: number, payload: UpdateKotPayload): Promise<KotDetailResponse> {
+    const res = await httpClient.put<KotDetailResponse>(`/kots/${id}`, payload);
+    return res.data;
+  },
+
+  async updateKotStatus(id: number, status: KotStatus): Promise<KotDetailResponse> {
+    const res = await httpClient.patch<KotDetailResponse>(`/kots/${id}/status`, {
+      status,
+    });
+    return res.data;
+  },
+
+  async deleteKot(id: number): Promise<void> {
+    await httpClient.delete(`/kots/${id}`);
+  },
+};

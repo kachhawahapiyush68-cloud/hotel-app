@@ -1,3 +1,4 @@
+// src/navigation/RootNavigator.tsx
 import React from "react";
 import {
   NavigationContainer,
@@ -8,6 +9,8 @@ import {
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import { useAuthStore } from "../store/authStore";
+import { useThemeStore } from "../store/themeStore";
+
 import AuthStack from "./AuthStack";
 import MainTabs from "./MainTabs";
 
@@ -17,6 +20,7 @@ import CategoryListScreen from "../modules/masters/CategoryListScreen";
 import RoomListScreen from "../modules/masters/RoomListScreen";
 import ProductListScreen from "../modules/masters/ProductListScreen";
 import GuestListScreen from "../modules/masters/GuestListScreen";
+
 import UserListScreen from "../modules/users/UserListScreen";
 import UserEditScreen from "../modules/users/UserEditScreen";
 
@@ -24,7 +28,14 @@ import BookingListScreen from "../modules/booking/BookingListScreen";
 import QuickReservationScreen from "../modules/booking/QuickReservationScreen";
 import ArrivalListScreen from "../modules/booking/ArrivalListScreen";
 
-import { useThemeStore } from "../store/themeStore";
+import StayViewScreen from "../modules/stayView/StayViewScreen";
+
+import KotListScreen from "../modules/kot/KotListScreen";
+import KotEntryScreen from "../modules/kot/KotEntryScreen";
+
+import BillListScreen from "../modules/bill/BillListScreen";
+import BillDetailScreen from "../modules/bill/BillDetailScreen";
+import BillFromKotScreen from "../modules/bill/BillFromKotScreen";
 
 export type RootStackParamList = {
   AuthStack: undefined;
@@ -46,6 +57,21 @@ export type RootStackParamList = {
   BookingList: undefined;
   QuickReservation: { bookingId?: number } | undefined;
   ArrivalList: undefined;
+
+  StayView: undefined;
+
+  KOTList: undefined;
+  KotEntry: { kotId?: number } | undefined;
+
+  BillList: undefined;
+  BillDetail: { billId: number };
+  BillFromKot: {
+    kotIds: number[];
+    bookingId?: number;
+    guestId?: number;
+    folioId?: number;
+    roomId?: number;
+  };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -79,23 +105,31 @@ const RootNavigator: React.FC = () => {
 
             <Stack.Screen name="CompanyList" component={CompanyListScreen} />
             <Stack.Screen name="CompanyEdit" component={CompanyEditScreen} />
-
             <Stack.Screen name="CategoryList" component={CategoryListScreen} />
             <Stack.Screen name="RoomList" component={RoomListScreen} />
             <Stack.Screen name="ProductList" component={ProductListScreen} />
             <Stack.Screen name="GuestList" component={GuestListScreen} />
-            {/* LedgerList and TaxGroupList can be added later */}
 
             <Stack.Screen name="UserList" component={UserListScreen} />
             <Stack.Screen name="UserEdit" component={UserEditScreen} />
 
-            {/* Booking flow */}
             <Stack.Screen name="BookingList" component={BookingListScreen} />
             <Stack.Screen
               name="QuickReservation"
               component={QuickReservationScreen}
             />
             <Stack.Screen name="ArrivalList" component={ArrivalListScreen} />
+
+            <Stack.Screen name="StayView" component={StayViewScreen} />
+
+            {/* KOT stack screens */}
+            <Stack.Screen name="KOTList" component={KotListScreen} />
+            <Stack.Screen name="KotEntry" component={KotEntryScreen} />
+
+            {/* Bill stack screens */}
+            <Stack.Screen name="BillList" component={BillListScreen} />
+            <Stack.Screen name="BillDetail" component={BillDetailScreen} />
+            <Stack.Screen name="BillFromKot" component={BillFromKotScreen} />
           </>
         )}
       </Stack.Navigator>
