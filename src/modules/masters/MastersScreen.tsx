@@ -48,6 +48,7 @@ const MasterItem: React.FC<ItemProps> = ({
       >
         <Ionicons name={icon as any} size={22} color={colors.primary} />
       </View>
+
       <View style={styles.textBlock}>
         <Text style={[styles.itemTitle, { color: colors.text }]}>
           {title}
@@ -92,42 +93,56 @@ export default function MastersScreen() {
           subtitle="Manage hotel/company profiles"
           onPress={() => navigation.navigate("CompanyList")}
         />
+
         <MasterItem
           icon="albums-outline"
           title="Categories"
           subtitle="Room, POS and other groups"
           onPress={() => navigation.navigate("CategoryList")}
         />
+
         <MasterItem
           icon="bed-outline"
           title="Rooms"
           subtitle="Room types, numbers and status"
           onPress={() => navigation.navigate("RoomList")}
         />
+
         <MasterItem
           icon="pricetag-outline"
           title="Products"
           subtitle="Extra services and items"
           onPress={() => navigation.navigate("ProductList")}
         />
+
         <MasterItem
           icon="person-outline"
           title="Guests"
           subtitle="Guest profiles and contacts"
           onPress={() => navigation.navigate("GuestList")}
         />
+
         <MasterItem
           icon="book-outline"
           title="Ledgers"
           subtitle="Accounts and balances"
           onPress={() => navigation.navigate("LedgerList")}
         />
+
         <MasterItem
           icon="receipt-outline"
           title="Tax Groups"
           subtitle="Tax configuration"
           onPress={() => navigation.navigate("TaxGroupList")}
         />
+
+        <MasterItem
+          icon="cash-outline"
+          title="Vouchers"
+          subtitle="Receipt, payment and journal entries"
+          onPress={() => navigation.navigate("VoucherList")}
+        />
+
         <MasterItem
           icon="people-outline"
           title="Users"
@@ -141,7 +156,7 @@ export default function MastersScreen() {
 
 const { width } = Dimensions.get("window");
 const ITEM_MARGIN = 8;
-const ITEM_WIDTH = (width - 16 * 2 - ITEM_MARGIN * 2) / 2; // padding *2 + margins
+const ITEM_WIDTH = (width - 16 * 2 - ITEM_MARGIN * 2) / 2;
 
 const styles = StyleSheet.create({
   container: {
@@ -183,7 +198,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: 10,
   },
-  textBlock: { flex: 1 },
+  textBlock: {
+    flex: 1,
+  },
   itemTitle: {
     fontSize: 14,
     fontWeight: "600",

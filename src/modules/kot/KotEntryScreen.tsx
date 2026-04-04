@@ -1,4 +1,3 @@
-// modules/kot/KotEntryScreen.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Alert, View, Text } from "react-native";
 import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
@@ -8,7 +7,6 @@ import {
   CreateKotPayload,
   KotServiceType,
   InHouseRoomOption,
-  KotStatus,
 } from "../../api/types";
 import {
   createKot,
@@ -57,8 +55,12 @@ const KotEntryScreen: React.FC = () => {
   const [kotNo, setKotNo] = useState("");
   const [notes, setNotes] = useState("");
   const [tableNo, setTableNo] = useState(route.params?.table_no || "");
-  const [bookingId, setBookingId] = useState<number | undefined>(route.params?.booking_id);
-  const [roomId, setRoomId] = useState<number | undefined>(route.params?.room_id);
+  const [bookingId, setBookingId] = useState<number | undefined>(
+    route.params?.booking_id
+  );
+  const [roomId, setRoomId] = useState<number | undefined>(
+    route.params?.room_id
+  );
   const [serviceType, setServiceType] = useState<KotServiceType>(
     route.params?.service_type || "TABLE"
   );
@@ -70,7 +72,8 @@ const KotEntryScreen: React.FC = () => {
   const [pickerVisible, setPickerVisible] = useState(false);
   const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null);
 
-  const [serviceTypePickerVisible, setServiceTypePickerVisible] = useState(false);
+  const [serviceTypePickerVisible, setServiceTypePickerVisible] =
+    useState(false);
   const [roomPickerVisible, setRoomPickerVisible] = useState(false);
 
   useEffect(() => {
@@ -94,7 +97,10 @@ const KotEntryScreen: React.FC = () => {
       const res = await productApi.list();
       setProducts(res);
     } catch (e: any) {
-      Alert.alert("Error", e?.response?.data?.message || e?.message || "Failed to load products");
+      Alert.alert(
+        "Error",
+        e?.response?.data?.message || e?.message || "Failed to load products"
+      );
     }
   };
 
@@ -103,7 +109,10 @@ const KotEntryScreen: React.FC = () => {
       const res = await fetchInHouseRooms();
       setRooms(res);
     } catch (e: any) {
-      Alert.alert("Error", e?.response?.data?.message || e?.message || "Failed to load rooms");
+      Alert.alert(
+        "Error",
+        e?.response?.data?.message || e?.message || "Failed to load rooms"
+      );
     }
   };
 
@@ -129,7 +138,10 @@ const KotEntryScreen: React.FC = () => {
         }))
       );
     } catch (e: any) {
-      Alert.alert("Error", e?.response?.data?.message || e?.message || "Failed to load KOT");
+      Alert.alert(
+        "Error",
+        e?.response?.data?.message || e?.message || "Failed to load KOT"
+      );
     } finally {
       setLoading(false);
     }
@@ -238,7 +250,9 @@ const KotEntryScreen: React.FC = () => {
   };
 
   const totalAmount = items.reduce(
-    (sum, item) => sum + (Number(item.qty) || 0) * (Number(item.rate_at_time ?? 0) || 0),
+    (sum, item) =>
+      sum +
+      (Number(item.qty) || 0) * (Number(item.rate_at_time ?? 0) || 0),
     0
   );
 
@@ -249,11 +263,17 @@ const KotEntryScreen: React.FC = () => {
     }
 
     const hasInvalid = items.some(
-      (item) => !item.product_id || Number(item.qty) <= 0 || Number(item.rate_at_time ?? 0) < 0
+      (item) =>
+        !item.product_id ||
+        Number(item.qty) <= 0 ||
+        Number(item.rate_at_time ?? 0) < 0
     );
 
     if (hasInvalid) {
-      Alert.alert("Validation", "Each item must have product, qty greater than 0, and valid rate");
+      Alert.alert(
+        "Validation",
+        "Each item must have product, qty greater than 0, and valid rate"
+      );
       return false;
     }
 
@@ -296,7 +316,10 @@ const KotEntryScreen: React.FC = () => {
         },
       ]);
     } catch (e: any) {
-      Alert.alert("Error", e?.response?.data?.message || e?.message || "Failed to create KOT");
+      Alert.alert(
+        "Error",
+        e?.response?.data?.message || e?.message || "Failed to create KOT"
+      );
     } finally {
       setLoading(false);
     }
@@ -318,7 +341,10 @@ const KotEntryScreen: React.FC = () => {
       Alert.alert("Success", "KOT updated successfully");
       await loadKot(kotId);
     } catch (e: any) {
-      Alert.alert("Error", e?.response?.data?.message || e?.message || "Failed to update KOT");
+      Alert.alert(
+        "Error",
+        e?.response?.data?.message || e?.message || "Failed to update KOT"
+      );
     } finally {
       setLoading(false);
     }
@@ -352,28 +378,32 @@ const KotEntryScreen: React.FC = () => {
 
   const handleDeleteKot = async () => {
     if (!kotId) return;
-    Alert.alert("Delete KOT", "Delete this KOT permanently? (Not billed only)", [
-      { text: "No" },
-      {
-        text: "Yes",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            setLoading(true);
-            await deleteKot(kotId);
-            Alert.alert("Deleted", "KOT deleted");
-            navigation.goBack();
-          } catch (e: any) {
-            Alert.alert(
-              "Error",
-              e?.response?.data?.message || e?.message || "Failed to delete KOT"
-            );
-          } finally {
-            setLoading(false);
-          }
+    Alert.alert(
+      "Delete KOT",
+      "Delete this KOT permanently? (Not billed only)",
+      [
+        { text: "No" },
+        {
+          text: "Yes",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await deleteKot(kotId);
+              Alert.alert("Deleted", "KOT deleted");
+              navigation.goBack();
+            } catch (e: any) {
+              Alert.alert(
+                "Error",
+                e?.response?.data?.message || e?.message || "Failed to delete KOT"
+              );
+            } finally {
+              setLoading(false);
+            }
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   if (loading && isView && !detail) {
@@ -382,7 +412,9 @@ const KotEntryScreen: React.FC = () => {
 
   const guestName =
     detail?.kot?.first_name || detail?.kot?.last_name
-      ? `${detail?.kot?.first_name || ""} ${detail?.kot?.last_name || ""}`.trim()
+      ? `${detail?.kot?.first_name || ""} ${
+          detail?.kot?.last_name || ""
+        }`.trim()
       : "";
 
   const canEditOrCancel: boolean =
@@ -411,50 +443,74 @@ const KotEntryScreen: React.FC = () => {
         >
           <View style={styles.summaryTopRow}>
             <View>
-              <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>
+              <Text
+                style={[
+                  styles.summaryLabel,
+                  { color: theme.colors.textSecondary },
+                ]}
+              >
                 Status
               </Text>
-              <Text style={[styles.summaryValue, { color: theme.colors.primary }]}>
+              <Text
+                style={[styles.summaryValue, { color: theme.colors.primary }]}
+              >
                 {detail?.kot?.status || "Open"}
               </Text>
             </View>
 
             <View>
-              <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>
+              <Text
+                style={[
+                  styles.summaryLabel,
+                  { color: theme.colors.textSecondary },
+                ]}
+              >
                 Total
               </Text>
-              <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
+              <Text
+                style={[styles.summaryValue, { color: theme.colors.text }]}
+              >
                 ₹ {totalAmount.toFixed(2)}
               </Text>
             </View>
           </View>
 
           {kotNo ? (
-            <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
+            <Text
+              style={[styles.metaText, { color: theme.colors.textSecondary }]}
+            >
               KOT No: {kotNo}
             </Text>
           ) : null}
 
           {isView && detail?.kot?.kot_datetime ? (
-            <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
+            <Text
+              style={[styles.metaText, { color: theme.colors.textSecondary }]}
+            >
               Date: {formatDateTime(detail.kot.kot_datetime)}
             </Text>
           ) : null}
 
           {guestName ? (
-            <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
+            <Text
+              style={[styles.metaText, { color: theme.colors.textSecondary }]}
+            >
               Guest: {guestName}
             </Text>
           ) : null}
 
           {detail?.kot?.room_no ? (
-            <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
+            <Text
+              style={[styles.metaText, { color: theme.colors.textSecondary }]}
+            >
               Room: {detail.kot.room_no}
             </Text>
           ) : null}
 
           {detail?.kot?.folio_no ? (
-            <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
+            <Text
+              style={[styles.metaText, { color: theme.colors.textSecondary }]}
+            >
               Folio: {detail.kot.folio_no}
             </Text>
           ) : null}
@@ -516,7 +572,12 @@ const KotEntryScreen: React.FC = () => {
             <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
               No items added yet
             </Text>
-            <Text style={[styles.emptySubtitle, { color: theme.colors.textSecondary }]}>
+            <Text
+              style={[
+                styles.emptySubtitle,
+                { color: theme.colors.textSecondary },
+              ]}
+            >
               Add one or more products to create this KOT
             </Text>
           </View>
@@ -543,7 +604,11 @@ const KotEntryScreen: React.FC = () => {
               onPress={addItem}
               style={{ marginBottom: 12 }}
             />
-            <AppButton title="Save KOT" onPress={handleCreate} loading={loading} />
+            <AppButton
+              title="Save KOT"
+              onPress={handleCreate}
+              loading={loading}
+            />
           </>
         ) : (
           canEditOrCancel && (

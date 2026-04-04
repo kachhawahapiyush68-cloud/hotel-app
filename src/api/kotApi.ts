@@ -1,4 +1,3 @@
-// api/kotApi.ts
 import { httpClient } from "./httpClient";
 import {
   Kot,
@@ -43,7 +42,9 @@ export const kotApi = {
   },
 
   async updateKotStatus(id: number, status: KotStatus): Promise<KotDetailResponse> {
-    const res = await httpClient.patch<KotDetailResponse>(`/kots/${id}/status`, { status });
+    const res = await httpClient.patch<KotDetailResponse>(`/kots/${id}/status`, {
+      status,
+    });
     return res.data;
   },
 

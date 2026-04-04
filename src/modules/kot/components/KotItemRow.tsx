@@ -1,4 +1,3 @@
-// modules/kot/components/KotItemRow.tsx
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import AppInput from "../../../shared/components/AppInput";

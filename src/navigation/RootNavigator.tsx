@@ -19,6 +19,8 @@ import CategoryListScreen from "../modules/masters/CategoryListScreen";
 import RoomListScreen from "../modules/masters/RoomListScreen";
 import ProductListScreen from "../modules/masters/ProductListScreen";
 import GuestListScreen from "../modules/masters/GuestListScreen";
+import LedgerListScreen from "../modules/masters/LedgerListScreen";
+import TaxGroupListScreen from "../modules/masters/TaxGroupListScreen";
 
 import UserListScreen from "../modules/users/UserListScreen";
 import UserEditScreen from "../modules/users/UserEditScreen";
@@ -36,6 +38,10 @@ import KotEntryScreen from "../modules/kot/KotEntryScreen";
 import BillListScreen from "../modules/bill/BillListScreen";
 import BillDetailScreen from "../modules/bill/BillDetailScreen";
 import BillFromKotScreen from "../modules/bill/BillFromKotScreen";
+
+// NEW: voucher screens
+import VoucherListScreen from "../modules/voucher/VoucherListScreen";
+import VoucherEntryScreen from "../modules/voucher/VoucherEntryScreen";
 
 export type RootStackParamList = {
   AuthStack: undefined;
@@ -87,6 +93,10 @@ export type RootStackParamList = {
         roomId?: number;
       }
     | undefined;
+
+  // NEW: Voucher stack routes
+  VoucherList: undefined;
+  VoucherEntry: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -129,6 +139,8 @@ const RootNavigator: React.FC = () => {
             <Stack.Screen name="RoomList" component={RoomListScreen} />
             <Stack.Screen name="ProductList" component={ProductListScreen} />
             <Stack.Screen name="GuestList" component={GuestListScreen} />
+            <Stack.Screen name="LedgerList" component={LedgerListScreen} />
+            <Stack.Screen name="TaxGroupList" component={TaxGroupListScreen} />
 
             <Stack.Screen name="UserList" component={UserListScreen} />
             <Stack.Screen name="UserEdit" component={UserEditScreen} />
@@ -149,6 +161,10 @@ const RootNavigator: React.FC = () => {
             <Stack.Screen name="BillList" component={BillListScreen} />
             <Stack.Screen name="BillDetail" component={BillDetailScreen} />
             <Stack.Screen name="BillFromKot" component={BillFromKotScreen} />
+
+            {/* NEW: Voucher stack screens */}
+            <Stack.Screen name="VoucherList" component={VoucherListScreen} />
+            <Stack.Screen name="VoucherEntry" component={VoucherEntryScreen} />
           </>
         )}
       </Stack.Navigator>

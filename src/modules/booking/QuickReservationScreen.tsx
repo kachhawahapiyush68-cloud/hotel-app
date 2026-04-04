@@ -1,4 +1,3 @@
-// src/modules/booking/QuickReservationScreen.tsx
 import React, { useEffect, useState } from "react";
 import { View, Alert } from "react-native";
 import { useThemeStore } from "../../store/themeStore";
@@ -6,7 +5,7 @@ import Loader from "../../shared/components/Loader";
 import BookingForm from "./components/BookingForm";
 import { useBookingStore } from "./store";
 import { useRoute, useNavigation } from "@react-navigation/native";
-import { bookingApi } from "../../api/bookingApi";
+import { bookingApi, BookingCreateInput } from "../../api/bookingApi";
 
 const QuickReservationScreen: React.FC = () => {
   const { theme } = useThemeStore();
@@ -15,7 +14,7 @@ const QuickReservationScreen: React.FC = () => {
   const bookingId: number | undefined = route.params?.bookingId;
   const { create, update } = useBookingStore();
 
-  const [initial, setInitial] = useState<any>({});
+  const [initial, setInitial] = useState<Partial<BookingCreateInput>>({});
   const [loading, setLoading] = useState<boolean>(!!bookingId);
   const [submitting, setSubmitting] = useState(false);
 
@@ -54,25 +53,21 @@ const QuickReservationScreen: React.FC = () => {
     load();
   }, [bookingId, navigation]);
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: BookingCreateInput) => {
     try {
       setSubmitting(true);
 
-      let saved = null;
       if (bookingId) {
-        saved = await update(bookingId, values);
+        await update(bookingId, values);
+        Alert.alert("Success", "Booking updated successfully");
       } else {
-        saved = await create({
+        await create({
           ...values,
           status: "Confirmed",
         });
+        Alert.alert("Success", "Booking created successfully");
       }
 
-      if (!saved) {
-        throw new Error("Booking save failed");
-      }
-
-      Alert.alert("Success", "Booking saved");
       navigation.goBack();
     } catch (e: any) {
       Alert.alert(

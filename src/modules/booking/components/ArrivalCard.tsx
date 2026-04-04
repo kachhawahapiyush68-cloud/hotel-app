@@ -1,4 +1,3 @@
-// src/modules/booking/components/ArrivalCard.tsx
 import React, { useState } from "react";
 import { View, Text, TouchableOpacity, Alert } from "react-native";
 import Card from "../../../shared/components/Card";

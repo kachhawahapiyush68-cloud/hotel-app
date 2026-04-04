@@ -1,4 +1,3 @@
-// src/modules/booking/components/RoomPicker.tsx
 import React, { useEffect, useState } from "react";
 import AppInput from "../../../shared/components/AppInput";
 import SelectModal, {

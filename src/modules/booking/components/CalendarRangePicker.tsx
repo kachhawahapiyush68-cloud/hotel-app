@@ -1,4 +1,3 @@
-// src/modules/booking/components/CalendarRangePicker.tsx
 import React, { useState } from "react";
 import { View, Text } from "react-native";
 import CalendarPicker from "react-native-calendar-picker";

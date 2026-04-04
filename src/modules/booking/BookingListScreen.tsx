@@ -22,11 +22,13 @@ type RoomLookup = Record<number, string>;
 const BookingListScreen: React.FC = () => {
   const { theme } = useThemeStore();
   const navigation = useNavigation<any>();
+
   const {
     items,
     loading,
     fetchReservationsInRange,
   } = useBookingStore();
+
   const [rooms, setRooms] = useState<RoomLookup>({});
 
   const todayIso = toIsoDate(new Date());
@@ -80,6 +82,8 @@ const BookingListScreen: React.FC = () => {
   const handleRangeChange = (start: string, end: string) => {
     setStartDate(start);
     setEndDate(end);
+    // store effect will re-run because startDate/endDate changed,
+    // but we call explicitly as well so UI refreshes immediately
     fetchReservationsInRange(start, end);
   };
 
@@ -151,7 +155,6 @@ const BookingListScreen: React.FC = () => {
           const roomLabel =
             rooms[item.room_id] || `Room #${item.room_id}`;
           const statusColor = getStatusColor(item.status);
-
           const isLeft = numColumns === 1 || index % 2 === 0;
 
           return (

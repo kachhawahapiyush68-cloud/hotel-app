@@ -1,4 +1,3 @@
-// src/modules/booking/components/GuestPicker.tsx
 import React, { useEffect, useState } from "react";
 import { Alert, Modal, View } from "react-native";
 import AppInput from "../../../shared/components/AppInput";

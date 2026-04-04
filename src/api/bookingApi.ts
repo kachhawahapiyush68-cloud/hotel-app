@@ -52,12 +52,9 @@ export interface BookingUpdateInput {
   room_id?: number;
   check_in_datetime?: string;
   check_out_datetime?: string;
-  actual_check_in_datetime?: string | null;
-  actual_check_out_datetime?: string | null;
   nights?: number;
   num_adult?: number;
   num_child?: number;
-  status?: BookingStatus;
 }
 
 export interface CheckInResponse {

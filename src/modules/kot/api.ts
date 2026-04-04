@@ -1,4 +1,3 @@
-// modules/kot/api.ts
 import { kotApi } from "../../api/kotApi";
 import {
   Kot,
@@ -17,11 +16,15 @@ export async function fetchKotDetail(id: number): Promise<KotDetailResponse> {
   return kotApi.getKotById(id);
 }
 
-export async function fetchInHouseRooms(companyid?: number): Promise<InHouseRoomOption[]> {
+export async function fetchInHouseRooms(
+  companyid?: number
+): Promise<InHouseRoomOption[]> {
   return kotApi.getInHouseRooms(companyid);
 }
 
-export async function createKot(payload: CreateKotPayload): Promise<KotDetailResponse> {
+export async function createKot(
+  payload: CreateKotPayload
+): Promise<KotDetailResponse> {
   return kotApi.createKot(payload);
 }
 

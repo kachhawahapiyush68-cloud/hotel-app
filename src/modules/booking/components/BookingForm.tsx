@@ -1,4 +1,3 @@
-// src/modules/booking/components/BookingForm.tsx
 import React, { useMemo, useState } from "react";
 import { Alert, View } from "react-native";
 import AppInput from "../../../shared/components/AppInput";

@@ -1,4 +1,3 @@
-// modules/kot/KotListScreen.tsx
 import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
@@ -93,8 +92,12 @@ const KotListScreen: React.FC = () => {
             <Text style={[styles.kotNo, { color: theme.colors.text }]}>
               {item.kot_no || `KOT #${item.kot_id}`}
             </Text>
-            <Text style={[styles.kotDate, { color: theme.colors.textSecondary }]}>
-              {item.kot_datetime ? formatDateTime(item.kot_datetime) : "No datetime"}
+            <Text
+              style={[styles.kotDate, { color: theme.colors.textSecondary }]}
+            >
+              {item.kot_datetime
+                ? formatDateTime(item.kot_datetime)
+                : "No datetime"}
             </Text>
           </View>
 
@@ -112,33 +115,45 @@ const KotListScreen: React.FC = () => {
 
         <View style={styles.metaWrap}>
           {item.room_no ? (
-            <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
+            <Text
+              style={[styles.metaText, { color: theme.colors.textSecondary }]}
+            >
               Room: {item.room_no}
             </Text>
           ) : null}
 
           {item.table_no ? (
-            <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
+            <Text
+              style={[styles.metaText, { color: theme.colors.textSecondary }]}
+            >
               Table: {item.table_no}
             </Text>
           ) : null}
 
           {item.reservation_no ? (
-            <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
+            <Text
+              style={[styles.metaText, { color: theme.colors.textSecondary }]}
+            >
               Booking: {item.reservation_no}
             </Text>
           ) : item.booking_id ? (
-            <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
+            <Text
+              style={[styles.metaText, { color: theme.colors.textSecondary }]}
+            >
               Booking ID: {item.booking_id}
             </Text>
           ) : null}
 
           {item.folio_no ? (
-            <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
+            <Text
+              style={[styles.metaText, { color: theme.colors.textSecondary }]}
+            >
               Folio: {item.folio_no}
             </Text>
           ) : item.folio_id ? (
-            <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
+            <Text
+              style={[styles.metaText, { color: theme.colors.textSecondary }]}
+            >
               Folio ID: {item.folio_id}
             </Text>
           ) : null}
