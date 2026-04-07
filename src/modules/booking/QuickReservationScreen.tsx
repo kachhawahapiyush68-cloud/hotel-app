@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { View, Alert } from "react-native";
 import { useThemeStore } from "../../store/themeStore";
 import Loader from "../../shared/components/Loader";
@@ -18,40 +18,40 @@ const QuickReservationScreen: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(!!bookingId);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    const load = async () => {
-      if (!bookingId) {
-        setLoading(false);
-        return;
-      }
+  const load = useCallback(async () => {
+    if (!bookingId) {
+      setLoading(false);
+      return;
+    }
 
-      try {
-        const b = await bookingApi.get(bookingId);
-        setInitial({
-          company_id: b.company_id,
-          reservation_no: b.reservation_no,
-          guest_id: b.guest_id,
-          room_id: b.room_id,
-          check_in_datetime: b.check_in_datetime,
-          check_out_datetime: b.check_out_datetime,
-          nights: b.nights,
-          num_adult: b.num_adult,
-          num_child: b.num_child,
-          status: b.status,
-        });
-      } catch (e: any) {
-        Alert.alert(
-          "Error",
-          e?.response?.data?.message || e?.message || "Failed to load booking"
-        );
-        navigation.goBack();
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    load();
+    try {
+      const b = await bookingApi.get(bookingId);
+      setInitial({
+        company_id: b.company_id,
+        reservation_no: b.reservation_no,
+        guest_id: b.guest_id,
+        room_id: b.room_id,
+        check_in_datetime: b.check_in_datetime,
+        check_out_datetime: b.check_out_datetime,
+        nights: b.nights,
+        num_adult: b.num_adult,
+        num_child: b.num_child,
+        status: b.status,
+      });
+    } catch (e: any) {
+      Alert.alert(
+        "Error",
+        e?.response?.data?.message || e?.message || "Failed to load booking"
+      );
+      navigation.goBack();
+    } finally {
+      setLoading(false);
+    }
   }, [bookingId, navigation]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const handleSubmit = async (values: BookingCreateInput) => {
     try {

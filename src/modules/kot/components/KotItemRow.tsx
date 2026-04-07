@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import AppInput from "../../../shared/components/AppInput";
 import AppButton from "../../../shared/components/AppButton";
@@ -26,8 +26,20 @@ const KotItemRow: React.FC<Props> = ({
   disabled,
 }) => {
   const { theme } = useThemeStore();
-  const amount =
-    (value.qty || 0) * (value.rate_at_time != null ? value.rate_at_time : 0);
+  const [qtyError, setQtyError] = useState<string>("");
+  const [rateError, setRateError] = useState<string>("");
+
+  const amount = useMemo(
+    () => (value.qty || 0) * (value.rate_at_time != null ? value.rate_at_time : 0),
+    [value.qty, value.rate_at_time]
+  );
+
+  useEffect(() => {
+    const q = Number(value.qty || 0);
+    const r = Number(value.rate_at_time ?? 0);
+    setQtyError(q <= 0 ? "Qty must be > 0" : "");
+    setRateError(r < 0 ? "Rate cannot be negative" : "");
+  }, [value.qty, value.rate_at_time]);
 
   return (
     <View
@@ -84,6 +96,11 @@ const KotItemRow: React.FC<Props> = ({
               })
             }
           />
+          {qtyError ? (
+            <Text style={{ color: theme.colors.error, fontSize: 11 }}>
+              {qtyError}
+            </Text>
+          ) : null}
         </View>
 
         <View style={styles.inlineCol}>
@@ -101,6 +118,11 @@ const KotItemRow: React.FC<Props> = ({
               })
             }
           />
+          {rateError ? (
+            <Text style={{ color: theme.colors.error, fontSize: 11 }}>
+              {rateError}
+            </Text>
+          ) : null}
         </View>
       </View>
 

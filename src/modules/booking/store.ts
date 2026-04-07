@@ -1,4 +1,3 @@
-// src/modules/booking/store.ts
 import { create } from "zustand";
 import {
   bookingApi,
@@ -10,6 +9,11 @@ import {
 import { useAuthStore } from "../../store/authStore";
 import { normalizeRole } from "../../shared/utils/role";
 
+export type CurrentFolio = {
+  folio_id: number;
+  folio_no: string;
+};
+
 type BookingState = {
   items: Booking[];
   loading: boolean;
@@ -18,7 +22,7 @@ type BookingState = {
   arrivals: Booking[];
 
   currentBooking: Booking | null;
-  currentFolio: { folio_id: number; folio_no: string } | null;
+  currentFolio: CurrentFolio | null;
 
   fetch: () => Promise<void>;
   create: (input: BookingCreateInput) => Promise<Booking | null>;
@@ -28,10 +32,11 @@ type BookingState = {
   fetchReservationsInRange: (from: string, to: string) => Promise<void>;
 
   setCurrentFromCheckIn: (booking: Booking, resp: CheckInResponse) => void;
-  setCurrentManual: (
-    booking: Booking,
-    folio: { folio_id: number; folio_no: string }
-  ) => void;
+  setCurrentManual: (booking: Booking, folio: CurrentFolio) => void;
+  setCurrentBooking: (booking: Booking | null) => void;
+  setCurrentFolioOnly: (folio: CurrentFolio | null) => void;
+  setCurrentBookingStatus: (status: Booking["status"]) => void;
+
   clearCurrent: () => void;
 };
 
@@ -107,10 +112,18 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       set({ error: null });
 
       const updated = await bookingApi.update(id, input);
-      set({
-        items: get().items.map((b) => (b.booking_id === id ? updated : b)),
-        arrivals: get().arrivals.map((b) => (b.booking_id === id ? updated : b)),
-      });
+
+      set((state) => ({
+        items: state.items.map((b) => (b.booking_id === id ? updated : b)),
+        arrivals: state.arrivals.map((b) =>
+          b.booking_id === id ? updated : b
+        ),
+        currentBooking:
+          state.currentBooking?.booking_id === id
+            ? { ...state.currentBooking, ...updated }
+            : state.currentBooking,
+      }));
+
       return updated;
     } catch (e: any) {
       set({
@@ -162,7 +175,12 @@ export const useBookingStore = create<BookingState>((set, get) => ({
 
   setCurrentFromCheckIn(booking, resp) {
     set({
-      currentBooking: booking,
+      currentBooking: {
+        ...booking,
+        status: "CheckedIn",
+        folio_id: resp.folio_id,
+        folio_no: resp.folio_no,
+      },
       currentFolio: {
         folio_id: resp.folio_id,
         folio_no: resp.folio_no,
@@ -175,6 +193,26 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       currentBooking: booking,
       currentFolio: folio,
     });
+  },
+
+  setCurrentBooking(booking) {
+    set({
+      currentBooking: booking,
+    });
+  },
+
+  setCurrentFolioOnly(folio) {
+    set({
+      currentFolio: folio,
+    });
+  },
+
+  setCurrentBookingStatus(status) {
+    set((state) => ({
+      currentBooking: state.currentBooking
+        ? { ...state.currentBooking, status }
+        : null,
+    }));
   },
 
   clearCurrent() {

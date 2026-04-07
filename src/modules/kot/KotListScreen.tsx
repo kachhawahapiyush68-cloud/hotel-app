@@ -1,3 +1,4 @@
+// src/modules/kot/KotListScreen.tsx
 import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
@@ -7,7 +8,12 @@ import {
   Text,
   TouchableOpacity,
 } from "react-native";
-import { useNavigation, useIsFocused } from "@react-navigation/native";
+import {
+  useNavigation,
+  useIsFocused,
+  useRoute,
+  RouteProp,
+} from "@react-navigation/native";
 import { Kot, KotStatus } from "../../api/types";
 import { fetchKotList } from "./api";
 import Loader from "../../shared/components/Loader";
@@ -16,8 +22,10 @@ import AppButton from "../../shared/components/AppButton";
 import Pill from "../../shared/components/Pill";
 import { formatDateTime } from "../../shared/utils/date";
 import { useThemeStore } from "../../store/themeStore";
+import { RootStackParamList } from "../../navigation/RootNavigator";
 
 type StatusFilter = "All" | KotStatus;
+type RouteProps = RouteProp<RootStackParamList, "KOTList">;
 
 const getStatusColor = (status: string | undefined, theme: any) => {
   switch (status) {
@@ -33,18 +41,28 @@ const getStatusColor = (status: string | undefined, theme: any) => {
 
 const KotListScreen: React.FC = () => {
   const navigation = useNavigation<any>();
+  const route = useRoute<RouteProps>();
   const isFocused = useIsFocused();
   const { theme } = useThemeStore();
 
   const [data, setData] = useState<Kot[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("Open");
+  const [statusFilter, setStatusFilter] =
+    useState<StatusFilter>("Open");
+
+  // Initialize from deep link param
+  useEffect(() => {
+    if (route.params?.status) {
+      setStatusFilter(route.params.status as StatusFilter);
+    }
+  }, [route.params?.status]);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const statusParam = statusFilter === "All" ? undefined : statusFilter;
+      const statusParam =
+        statusFilter === "All" ? undefined : statusFilter;
       const res = await fetchKotList(statusParam);
       setData(res);
     } finally {
@@ -85,7 +103,9 @@ const KotListScreen: React.FC = () => {
             shadowColor: theme.colors.text,
           },
         ]}
-        onPress={() => navigation.navigate("KotEntry", { kotId: item.kot_id })}
+        onPress={() =>
+          navigation.navigate("KotEntry", { kotId: item.kot_id })
+        }
       >
         <View style={styles.topRow}>
           <View style={{ flex: 1 }}>
@@ -116,7 +136,10 @@ const KotListScreen: React.FC = () => {
         <View style={styles.metaWrap}>
           {item.room_no ? (
             <Text
-              style={[styles.metaText, { color: theme.colors.textSecondary }]}
+              style={[
+                styles.metaText,
+                { color: theme.colors.textSecondary },
+              ]}
             >
               Room: {item.room_no}
             </Text>
@@ -124,7 +147,10 @@ const KotListScreen: React.FC = () => {
 
           {item.table_no ? (
             <Text
-              style={[styles.metaText, { color: theme.colors.textSecondary }]}
+              style={[
+                styles.metaText,
+                { color: theme.colors.textSecondary },
+              ]}
             >
               Table: {item.table_no}
             </Text>
@@ -132,13 +158,19 @@ const KotListScreen: React.FC = () => {
 
           {item.reservation_no ? (
             <Text
-              style={[styles.metaText, { color: theme.colors.textSecondary }]}
+              style={[
+                styles.metaText,
+                { color: theme.colors.textSecondary },
+              ]}
             >
               Booking: {item.reservation_no}
             </Text>
           ) : item.booking_id ? (
             <Text
-              style={[styles.metaText, { color: theme.colors.textSecondary }]}
+              style={[
+                styles.metaText,
+                { color: theme.colors.textSecondary },
+              ]}
             >
               Booking ID: {item.booking_id}
             </Text>
@@ -146,13 +178,19 @@ const KotListScreen: React.FC = () => {
 
           {item.folio_no ? (
             <Text
-              style={[styles.metaText, { color: theme.colors.textSecondary }]}
+              style={[
+                styles.metaText,
+                { color: theme.colors.textSecondary },
+              ]}
             >
               Folio: {item.folio_no}
             </Text>
           ) : item.folio_id ? (
             <Text
-              style={[styles.metaText, { color: theme.colors.textSecondary }]}
+              style={[
+                styles.metaText,
+                { color: theme.colors.textSecondary },
+              ]}
             >
               Folio ID: {item.folio_id}
             </Text>
@@ -174,11 +212,16 @@ const KotListScreen: React.FC = () => {
 
   return (
     <View
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      style={[
+        styles.container,
+        { backgroundColor: theme.colors.background },
+      ]}
     >
       <SectionTitle
         title="Kitchen Orders"
-        subtitle={`${data.length} order${data.length === 1 ? "" : "s"}`}
+        subtitle={`${data.length} order${
+          data.length === 1 ? "" : "s"
+        }`}
         rightContent={
           <AppButton
             title="New KOT"
@@ -223,7 +266,9 @@ const KotListScreen: React.FC = () => {
                 },
               ]}
             >
-              <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+              <Text
+                style={[styles.emptyTitle, { color: theme.colors.text }]}
+              >
                 No KOTs found
               </Text>
               <Text

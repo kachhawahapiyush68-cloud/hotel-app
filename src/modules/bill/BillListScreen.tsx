@@ -1,3 +1,4 @@
+// src/modules/bill/BillListScreen.tsx
 import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
@@ -7,8 +8,13 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from "react-native";
-import { useNavigation, useIsFocused } from "@react-navigation/native";
-import { Bill } from "./types";
+import {
+  useNavigation,
+  useIsFocused,
+  useRoute,
+  RouteProp,
+} from "@react-navigation/native";
+import { Bill, toUiBillPaymentStatus } from "./types";
 import { fetchBillList } from "./api";
 import Loader from "../../shared/components/Loader";
 import SectionTitle from "../../shared/components/SectionTitle";
@@ -17,8 +23,10 @@ import AppButton from "../../shared/components/AppButton";
 import { formatDateTime } from "../../shared/utils/date";
 import { formatNumber } from "../../shared/utils/number";
 import { useThemeStore } from "../../store/themeStore";
+import { RootStackParamList } from "../../navigation/RootNavigator";
 
 type BillTypeFilter = "All" | "Restaurant" | "Room";
+type RouteProps = RouteProp<RootStackParamList, "BillList">;
 
 const getPaymentColor = (status: string | undefined) => {
   switch (status) {
@@ -34,6 +42,7 @@ const getPaymentColor = (status: string | undefined) => {
 
 const BillListScreen: React.FC = () => {
   const navigation = useNavigation<any>();
+  const route = useRoute<RouteProps>();
   const isFocused = useIsFocused();
   const { theme } = useThemeStore();
 
@@ -41,17 +50,38 @@ const BillListScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<BillTypeFilter>("All");
+  const [paymentFilter, setPaymentFilter] = useState<
+    "All" | "Unpaid" | "PartiallyPaid" | "Paid"
+  >("All");
+
+  // Initialize from deep link params (dashboard)
+  useEffect(() => {
+    if (route.params?.bill_type) {
+      setFilter(route.params.bill_type as BillTypeFilter);
+    }
+    if (route.params?.payment_status) {
+      setPaymentFilter(route.params.payment_status as any);
+    }
+  }, [route.params?.bill_type, route.params?.payment_status]);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
       const billType = filter === "All" ? undefined : filter;
       const res = await fetchBillList(billType);
-      setData(res);
+      let rows = res;
+
+      if (paymentFilter !== "All") {
+        rows = rows.filter(
+          (b) => toUiBillPaymentStatus(b.payment_status) === paymentFilter
+        );
+      }
+
+      setData(rows);
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [filter, paymentFilter]);
 
   const onRefresh = useCallback(async () => {
     try {
@@ -69,7 +99,8 @@ const BillListScreen: React.FC = () => {
   }, [isFocused, load]);
 
   const renderItem = ({ item }: { item: Bill }) => {
-    const paymentColor = getPaymentColor(item.payment_status);
+    const paymentStatus = toUiBillPaymentStatus(item.payment_status);
+    const paymentColor = getPaymentColor(paymentStatus);
     const guestName =
       item.first_name || item.last_name
         ? `${item.first_name || ""} ${item.last_name || ""}`.trim()
@@ -85,15 +116,24 @@ const BillListScreen: React.FC = () => {
             borderColor: theme.colors.border,
           },
         ]}
-        onPress={() => navigation.navigate("BillDetail", { billId: item.bill_id })}
+        onPress={() =>
+          navigation.navigate("BillDetail", { billId: item.bill_id })
+        }
       >
         <View style={styles.topRow}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.billNo, { color: theme.colors.text }]}>
               {item.bill_no}
             </Text>
-            <Text style={[styles.dateText, { color: theme.colors.textSecondary }]}>
-              {item.bill_datetime ? formatDateTime(item.bill_datetime) : "No date"}
+            <Text
+              style={[
+                styles.dateText,
+                { color: theme.colors.textSecondary },
+              ]}
+            >
+              {item.bill_datetime
+                ? formatDateTime(item.bill_datetime)
+                : "No date"}
             </Text>
           </View>
 
@@ -104,29 +144,37 @@ const BillListScreen: React.FC = () => {
             ]}
           >
             <Text style={[styles.badgeText, { color: paymentColor }]}>
-              {item.payment_status || "Unpaid"}
+              {paymentStatus}
             </Text>
           </View>
         </View>
 
-        <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
+        <Text
+          style={[styles.metaText, { color: theme.colors.textSecondary }]}
+        >
           Type: {item.bill_type}
         </Text>
 
         {item.room_no ? (
-          <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
+          <Text
+            style={[styles.metaText, { color: theme.colors.textSecondary }]}
+          >
             Room: {item.room_no}
           </Text>
         ) : null}
 
         {item.folio_no ? (
-          <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
+          <Text
+            style={[styles.metaText, { color: theme.colors.textSecondary }]}
+          >
             Folio: {item.folio_no}
           </Text>
         ) : null}
 
         {guestName ? (
-          <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
+          <Text
+            style={[styles.metaText, { color: theme.colors.textSecondary }]}
+          >
             Guest: {guestName}
           </Text>
         ) : null}
@@ -143,7 +191,12 @@ const BillListScreen: React.FC = () => {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: theme.colors.background },
+      ]}
+    >
       <SectionTitle
         title="Bills"
         subtitle={`${data.length} bill${data.length === 1 ? "" : "s"}`}
@@ -156,15 +209,32 @@ const BillListScreen: React.FC = () => {
         }
       />
 
+      {/* Type filter */}
       <View style={styles.filterRow}>
-        {(["All", "Restaurant", "Room"] as BillTypeFilter[]).map((item) => (
-          <Pill
-            key={item}
-            label={item}
-            active={filter === item}
-            onPress={() => setFilter(item)}
-          />
-        ))}
+        {(["All", "Restaurant", "Room"] as BillTypeFilter[]).map(
+          (item) => (
+            <Pill
+              key={item}
+              label={item}
+              active={filter === item}
+              onPress={() => setFilter(item)}
+            />
+          )
+        )}
+      </View>
+
+      {/* Payment filter */}
+      <View style={styles.filterRow}>
+        {(["All", "Unpaid", "PartiallyPaid", "Paid"] as const).map(
+          (status) => (
+            <Pill
+              key={status}
+              label={status}
+              active={paymentFilter === status}
+              onPress={() => setPaymentFilter(status)}
+            />
+          )
+        )}
       </View>
 
       <FlatList
@@ -185,10 +255,17 @@ const BillListScreen: React.FC = () => {
                 },
               ]}
             >
-              <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+              <Text
+                style={[styles.emptyTitle, { color: theme.colors.text }]}
+              >
                 No bills found
               </Text>
-              <Text style={[styles.emptySubtitle, { color: theme.colors.textSecondary }]}>
+              <Text
+                style={[
+                  styles.emptySubtitle,
+                  { color: theme.colors.textSecondary },
+                ]}
+              >
                 Generate bill from KOT or room stay
               </Text>
             </View>

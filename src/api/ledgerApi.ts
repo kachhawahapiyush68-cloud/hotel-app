@@ -1,44 +1,41 @@
-// src/api/ledgerApi.ts
-
 import { httpClient } from "./httpClient";
 import {
   Ledger,
   CreateLedgerPayload,
   UpdateLedgerPayload,
+  LedgerSummaryResponse,
 } from "./types";
 
 export const ledgerApi = {
-  getAll: async () => {
-    const res = await httpClient.get<Ledger[]>("/ledgers");
-    return res.data;
+  async getAll(companyid?: number): Promise<Ledger[]> {
+    const params = companyid ? { companyid } : undefined;
+    const res = await httpClient.get<Ledger[]>("/ledgers", { params });
+    return Array.isArray(res.data) ? res.data : [];
   },
 
-  getById: async (id: number) => {
+  async getById(id: number): Promise<Ledger> {
     const res = await httpClient.get<Ledger>(`/ledgers/${id}`);
     return res.data;
   },
 
-  create: async (payload: CreateLedgerPayload) => {
+  async create(payload: CreateLedgerPayload): Promise<Ledger> {
     const res = await httpClient.post<Ledger>("/ledgers", payload);
     return res.data;
   },
 
-  update: async (id: number, payload: UpdateLedgerPayload) => {
+  async update(id: number, payload: UpdateLedgerPayload): Promise<Ledger> {
     const res = await httpClient.put<Ledger>(`/ledgers/${id}`, payload);
     return res.data;
   },
 
-  remove: async (id: number) => {
-    const res = await httpClient.delete(`/ledgers/${id}`);
-    return res.data;
+  async remove(id: number): Promise<void> {
+    await httpClient.delete(`/ledgers/${id}`);
   },
 
-  getStatement: async (id: number, from?: string, to?: string) => {
-    const params: any = {};
-    if (from) params.from = from;
-    if (to) params.to = to;
-
-    const res = await httpClient.get(`/ledgers/${id}/statement`, { params });
+  async getSummary(id: number): Promise<LedgerSummaryResponse> {
+    const res = await httpClient.get<LedgerSummaryResponse>(
+      `/ledgers/${id}/summary`
+    );
     return res.data;
   },
 };

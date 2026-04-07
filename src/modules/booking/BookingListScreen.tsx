@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   FlatList,
@@ -82,8 +82,6 @@ const BookingListScreen: React.FC = () => {
   const handleRangeChange = (start: string, end: string) => {
     setStartDate(start);
     setEndDate(end);
-    // store effect will re-run because startDate/endDate changed,
-    // but we call explicitly as well so UI refreshes immediately
     fetchReservationsInRange(start, end);
   };
 

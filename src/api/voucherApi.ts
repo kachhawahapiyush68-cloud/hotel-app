@@ -1,35 +1,49 @@
-// src/api/voucherApi.ts
-
 import { httpClient } from "./httpClient";
 import {
   Voucher,
   CreateVoucherPayload,
-  VoucherDetailResponse,
+  UpdateVoucherPayload,
 } from "./types";
 
 export const voucherApi = {
-  getAll: async () => {
-    const res = await httpClient.get<Voucher[]>("/vouchers");
+  async getAll(params?: {
+    type?: string;
+    from?: string;
+    to?: string;
+    companyid?: number;
+  }): Promise<Voucher[]> {
+    const res = await httpClient.get<Voucher[]>("/vouchers", { params });
+    return Array.isArray(res.data) ? res.data : [];
+  },
+
+  async getById(id: number): Promise<Voucher> {
+    const res = await httpClient.get<Voucher>(`/vouchers/${id}`);
     return res.data;
   },
 
-  getById: async (id: number) => {
-    const res = await httpClient.get<VoucherDetailResponse>(`/vouchers/${id}`);
+  async getNextNumber(payload: {
+    voucher_type: string;
+    voucher_date: string;
+    companyid?: number;
+  }): Promise<{ voucher_no: string }> {
+    const res = await httpClient.get<{ voucher_no: string }>(
+      "/vouchers/next-number",
+      { params: payload }
+    );
     return res.data;
   },
 
-  create: async (payload: CreateVoucherPayload) => {
-    const res = await httpClient.post<VoucherDetailResponse>("/vouchers", payload);
+  async create(payload: CreateVoucherPayload): Promise<Voucher> {
+    const res = await httpClient.post<Voucher>("/vouchers", payload);
     return res.data;
   },
 
-  remove: async (id: number) => {
-    const res = await httpClient.delete(`/vouchers/${id}`);
+  async update(id: number, payload: UpdateVoucherPayload): Promise<Voucher> {
+    const res = await httpClient.put<Voucher>(`/vouchers/${id}`, payload);
     return res.data;
   },
 
-  getByLedger: async (ledgerId: number) => {
-    const res = await httpClient.get(`/vouchers/ledger/${ledgerId}`);
-    return res.data;
+  async remove(id: number): Promise<void> {
+    await httpClient.delete(`/vouchers/${id}`);
   },
 };

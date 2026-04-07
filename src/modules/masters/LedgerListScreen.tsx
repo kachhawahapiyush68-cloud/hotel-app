@@ -1,5 +1,3 @@
-// src/modules/masters/LedgerListScreen.tsx
-
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
@@ -17,7 +15,11 @@ import AppButton from "../../shared/components/AppButton";
 import Loader from "../../shared/components/Loader";
 import LedgerForm from "./components/LedgerForm";
 
-export default function LedgerListScreen() {
+type Props = {
+  navigation: any;
+};
+
+export default function LedgerListScreen({ navigation }: Props) {
   const [items, setItems] = useState<Ledger[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -34,7 +36,10 @@ export default function LedgerListScreen() {
       try {
         await loadData();
       } catch (e: any) {
-        Alert.alert("Error", e?.response?.data?.message || "Failed to load ledgers");
+        Alert.alert(
+          "Error",
+          e?.response?.data?.message || "Failed to load ledgers"
+        );
       } finally {
         setLoading(false);
       }
@@ -54,14 +59,16 @@ export default function LedgerListScreen() {
     try {
       setSaving(true);
       await ledgerApi.create({
-        company_id: 1, // or derive from auth store
         ...payload,
       });
       setModalVisible(false);
       await loadData();
       Alert.alert("Success", "Ledger created successfully");
     } catch (e: any) {
-      Alert.alert("Error", e?.response?.data?.message || "Failed to save ledger");
+      Alert.alert(
+        "Error",
+        e?.response?.data?.message || "Failed to save ledger"
+      );
     } finally {
       setSaving(false);
     }
@@ -78,7 +85,10 @@ export default function LedgerListScreen() {
             await ledgerApi.remove(item.ledger_id!);
             await loadData();
           } catch (e: any) {
-            Alert.alert("Error", e?.response?.data?.message || "Delete failed");
+            Alert.alert(
+              "Error",
+              e?.response?.data?.message || "Delete failed"
+            );
           }
         },
       },
@@ -103,9 +113,22 @@ export default function LedgerListScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.title}>{item.ledger_name}</Text>
                 <Text style={styles.sub}>
-                  {item.ledger_type} | {item.dr_cr_flag} | OB: {item.opening_balance}
+                  {item.ledger_type} | {item.dr_cr_flag} | OB:{" "}
+                  {Number(item.opening_balance || 0).toFixed(2)}
                 </Text>
               </View>
+            </View>
+
+            <View style={styles.actions}>
+              <AppButton
+                title="Statement"
+                variant="secondary"
+                onPress={() =>
+                  navigation.navigate("LedgerStatement", {
+                    ledgerId: item.ledger_id,
+                  })
+                }
+              />
               <AppButton
                 title="Delete"
                 variant="danger"
@@ -133,12 +156,16 @@ export default function LedgerListScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, gap: 12 },
-  card: { marginBottom: 12 },
+  card: { marginBottom: 12, gap: 10 },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 12,
     alignItems: "center",
+  },
+  actions: {
+    flexDirection: "row",
+    gap: 10,
   },
   title: { fontSize: 16, fontWeight: "700" },
   sub: { marginTop: 4, color: "#666" },

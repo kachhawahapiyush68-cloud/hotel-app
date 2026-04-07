@@ -1,5 +1,3 @@
-// src/modules/masters/components/LedgerForm.tsx
-
 import React, { useMemo, useState } from "react";
 import { Alert, StyleSheet, Switch, Text, View } from "react-native";
 import AppInput from "../../../shared/components/AppInput";
@@ -26,8 +24,14 @@ const LEDGER_TYPES = [
   "PARTY",
 ];
 
-export default function LedgerForm({ initialValues, loading, onSubmit }: Props) {
-  const [ledgerName, setLedgerName] = useState(initialValues?.ledger_name ?? "");
+export default function LedgerForm({
+  initialValues,
+  loading,
+  onSubmit,
+}: Props) {
+  const [ledgerName, setLedgerName] = useState(
+    initialValues?.ledger_name ?? ""
+  );
   const [ledgerType, setLedgerType] = useState(
     initialValues?.ledger_type ?? "CASH"
   );
@@ -37,10 +41,15 @@ export default function LedgerForm({ initialValues, loading, onSubmit }: Props) 
   const [drCrFlag, setDrCrFlag] = useState<"Dr" | "Cr">(
     initialValues?.dr_cr_flag ?? "Dr"
   );
-  const [isActive, setIsActive] = useState((initialValues?.is_active ?? 1) === 1);
+  const [isActive, setIsActive] = useState(
+    (initialValues?.is_active ?? 1) === 1
+  );
   const [typeModalOpen, setTypeModalOpen] = useState(false);
 
-  const canSubmit = useMemo(() => ledgerName.trim().length > 0, [ledgerName]);
+  const canSubmit = useMemo(
+    () => ledgerName.trim().length > 0,
+    [ledgerName]
+  );
 
   const handleSubmit = async () => {
     if (!ledgerName.trim()) {
@@ -49,8 +58,11 @@ export default function LedgerForm({ initialValues, loading, onSubmit }: Props) 
     }
 
     const ob = Number(openingBalance || 0);
-    if (Number.isNaN(ob)) {
-      Alert.alert("Validation", "Opening balance must be a number");
+    if (Number.isNaN(ob) || ob < 0) {
+      Alert.alert(
+        "Validation",
+        "Opening balance must be a number ≥ 0"
+      );
       return;
     }
 

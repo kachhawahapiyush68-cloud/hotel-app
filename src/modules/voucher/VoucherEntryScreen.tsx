@@ -1,5 +1,3 @@
-// src/modules/voucher/VoucherEntryScreen.tsx
-
 import React, { useEffect, useMemo, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import AppInput from "../../shared/components/AppInput";
@@ -29,9 +27,16 @@ const VOUCHER_TYPES: VoucherType[] = [
   "Purchase",
 ];
 
-export default function VoucherEntryScreen({ navigation }: any) {
-  const [voucherDate, setVoucherDate] = useState("2026-04-04");
-  const [voucherType, setVoucherType] = useState<VoucherType>("Receipt");
+const todayIso = new Date().toISOString().slice(0, 10);
+
+type Props = {
+  navigation: any;
+};
+
+export default function VoucherEntryScreen({ navigation }: Props) {
+  const [voucherDate, setVoucherDate] = useState(todayIso);
+  const [voucherType, setVoucherType] =
+    useState<VoucherType>("Receipt");
   const [narration, setNarration] = useState("");
   const [referenceNo, setReferenceNo] = useState("");
   const [ledgers, setLedgers] = useState<Ledger[]>([]);
@@ -41,7 +46,8 @@ export default function VoucherEntryScreen({ navigation }: any) {
   ]);
   const [saving, setSaving] = useState(false);
 
-  const [ledgerPickerIndex, setLedgerPickerIndex] = useState<number | null>(null);
+  const [ledgerPickerIndex, setLedgerPickerIndex] =
+    useState<number | null>(null);
   const [voucherTypeModal, setVoucherTypeModal] = useState(false);
 
   useEffect(() => {
@@ -49,10 +55,15 @@ export default function VoucherEntryScreen({ navigation }: any) {
       try {
         const data = await ledgerApi.getAll();
         setLedgers(
-          data.filter((x) => (x.is_deleted ?? 0) === 0 && x.is_active === 1)
+          data.filter(
+            (x) => (x.is_deleted ?? 0) === 0 && (x.is_active ?? 1) === 1
+          )
         );
       } catch (e: any) {
-        Alert.alert("Error", e?.response?.data?.message || "Failed to load ledgers");
+        Alert.alert(
+          "Error",
+          e?.response?.data?.message || "Failed to load ledgers"
+        );
       }
     })();
   }, []);
@@ -61,13 +72,16 @@ export default function VoucherEntryScreen({ navigation }: any) {
     () => lines.reduce((sum, x) => sum + Number(x.dr_amount || 0), 0),
     [lines]
   );
+
   const totalCr = useMemo(
     () => lines.reduce((sum, x) => sum + Number(x.cr_amount || 0), 0),
     [lines]
   );
 
   const updateLine = (index: number, patch: Partial<EntryLine>) => {
-    setLines((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+    setLines((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, ...patch } : row))
+    );
   };
 
   const addLine = () => {
@@ -93,28 +107,54 @@ export default function VoucherEntryScreen({ navigation }: any) {
 
     for (const line of lines) {
       if (!line.ledger_id) {
-        Alert.alert("Validation", "Please select ledger in all lines");
+        Alert.alert(
+          "Validation",
+          "Please select ledger in all lines"
+        );
         return false;
       }
+
       const dr = Number(line.dr_amount || 0);
       const cr = Number(line.cr_amount || 0);
 
+      if (Number.isNaN(dr) || Number.isNaN(cr)) {
+        Alert.alert(
+          "Validation",
+          "Amounts must be valid numbers"
+        );
+        return false;
+      }
+
       if (dr === 0 && cr === 0) {
-        Alert.alert("Validation", "Each line must have Dr or Cr amount");
+        Alert.alert(
+          "Validation",
+          "Each line must have Dr or Cr amount"
+        );
         return false;
       }
+
       if (dr > 0 && cr > 0) {
-        Alert.alert("Validation", "A line cannot have both Dr and Cr");
+        Alert.alert(
+          "Validation",
+          "A line cannot have both Dr and Cr"
+        );
         return false;
       }
+
       if (dr < 0 || cr < 0) {
-        Alert.alert("Validation", "Amounts cannot be negative");
+        Alert.alert(
+          "Validation",
+          "Amounts cannot be negative"
+        );
         return false;
       }
     }
 
-    if (totalDr !== totalCr) {
-      Alert.alert("Validation", "Total Dr must equal Total Cr");
+    if (Math.abs(totalDr - totalCr) > 0.0001) {
+      Alert.alert(
+        "Validation",
+        "Total Dr must equal Total Cr"
+      );
       return false;
     }
 
@@ -125,11 +165,10 @@ export default function VoucherEntryScreen({ navigation }: any) {
     if (!validate()) return;
 
     const payload: CreateVoucherPayload = {
-      company_id: 1, // or derive from auth store
       voucher_date: voucherDate,
       voucher_type: voucherType,
-      narration,
-      reference_no: referenceNo,
+      narration: narration.trim() || undefined,
+      reference_no: referenceNo.trim() || undefined,
       details: lines.map((line) => ({
         ledger_id: Number(line.ledger_id),
         dr_amount: Number(line.dr_amount || 0),
@@ -140,10 +179,17 @@ export default function VoucherEntryScreen({ navigation }: any) {
     try {
       setSaving(true);
       const res = await voucherApi.create(payload);
-      Alert.alert("Success", `Voucher created: ${res.voucher.voucher_no}`);
-      navigation.goBack?.();
+      Alert.alert("Success", `Voucher created: ${res.voucher_no}`, [
+        {
+          text: "OK",
+          onPress: () => navigation.goBack?.(),
+        },
+      ]);
     } catch (e: any) {
-      Alert.alert("Error", e?.response?.data?.message || "Failed to create voucher");
+      Alert.alert(
+        "Error",
+        e?.response?.data?.message || "Failed to create voucher"
+      );
     } finally {
       setSaving(false);
     }
@@ -157,6 +203,7 @@ export default function VoucherEntryScreen({ navigation }: any) {
         label="Voucher Date"
         value={voucherDate}
         onChangeText={setVoucherDate}
+        placeholder="YYYY-MM-DD"
       />
 
       <Text style={styles.label}>Voucher Type</Text>
@@ -170,11 +217,14 @@ export default function VoucherEntryScreen({ navigation }: any) {
         label="Narration"
         value={narration}
         onChangeText={setNarration}
+        placeholder="Optional narration"
       />
+
       <AppInput
         label="Reference No"
         value={referenceNo}
         onChangeText={setReferenceNo}
+        placeholder="Optional reference"
       />
 
       <Text style={styles.section}>Entries</Text>
@@ -193,14 +243,18 @@ export default function VoucherEntryScreen({ navigation }: any) {
             label="Dr Amount"
             keyboardType="numeric"
             value={line.dr_amount}
-            onChangeText={(v) => updateLine(index, { dr_amount: v })}
+            onChangeText={(v) =>
+              updateLine(index, { dr_amount: v, cr_amount: "0" })
+            }
           />
 
           <AppInput
             label="Cr Amount"
             keyboardType="numeric"
             value={line.cr_amount}
-            onChangeText={(v) => updateLine(index, { cr_amount: v })}
+            onChangeText={(v) =>
+              updateLine(index, { cr_amount: v, dr_amount: "0" })
+            }
           />
 
           <AppButton
@@ -245,17 +299,22 @@ export default function VoucherEntryScreen({ navigation }: any) {
         }))}
         selectedValue={
           ledgerPickerIndex !== null
-            ? lines[ledgerPickerIndex].ledger_id ?? undefined
+            ? lines[ledgerPickerIndex]?.ledger_id ?? undefined
             : undefined
         }
         onClose={() => setLedgerPickerIndex(null)}
         onSelect={(value) => {
           if (ledgerPickerIndex === null) return;
-          const led = ledgers.find((l) => l.ledger_id === value);
+
+          const selectedLedger = ledgers.find(
+            (l) => l.ledger_id === Number(value)
+          );
+
           updateLine(ledgerPickerIndex, {
-            ledger_id: value,
-            ledger_name: led?.ledger_name,
+            ledger_id: Number(value),
+            ledger_name: selectedLedger?.ledger_name,
           });
+
           setLedgerPickerIndex(null);
         }}
       />

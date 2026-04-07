@@ -76,6 +76,12 @@ const KotEntryScreen: React.FC = () => {
     useState(false);
   const [roomPickerVisible, setRoomPickerVisible] = useState(false);
 
+  const [orderErrors, setOrderErrors] = useState<{
+    table?: string;
+    room?: string;
+    items?: string;
+  }>({});
+
   useEffect(() => {
     loadProducts();
   }, []);
@@ -233,8 +239,10 @@ const KotEntryScreen: React.FC = () => {
     if (next === "TABLE") {
       setBookingId(undefined);
       setRoomId(undefined);
+      setOrderErrors((prev) => ({ ...prev, room: "" }));
     } else {
       setTableNo("");
+      setOrderErrors((prev) => ({ ...prev, table: "" }));
     }
 
     setServiceTypePickerVisible(false);
@@ -247,46 +255,52 @@ const KotEntryScreen: React.FC = () => {
     setBookingId(selected.booking_id);
     setRoomId(selected.room_id ?? undefined);
     setRoomPickerVisible(false);
+    setOrderErrors((prev) => ({ ...prev, room: "" }));
   };
 
-  const totalAmount = items.reduce(
-    (sum, item) =>
-      sum +
-      (Number(item.qty) || 0) * (Number(item.rate_at_time ?? 0) || 0),
-    0
+  const totalAmount = useMemo(
+    () =>
+      items.reduce(
+        (sum, item) =>
+          sum +
+          (Number(item.qty) || 0) * (Number(item.rate_at_time ?? 0) || 0),
+        0
+      ),
+    [items]
   );
 
   const validate = () => {
+    const nextErrors: typeof orderErrors = {};
+
     if (items.length === 0) {
-      Alert.alert("Validation", "Please add at least one item");
-      return false;
-    }
-
-    const hasInvalid = items.some(
-      (item) =>
-        !item.product_id ||
-        Number(item.qty) <= 0 ||
-        Number(item.rate_at_time ?? 0) < 0
-    );
-
-    if (hasInvalid) {
-      Alert.alert(
-        "Validation",
-        "Each item must have product, qty greater than 0, and valid rate"
+      nextErrors.items = "Please add at least one item";
+    } else {
+      const hasInvalid = items.some(
+        (item) =>
+          !item.product_id ||
+          Number(item.qty) <= 0 ||
+          Number(item.rate_at_time ?? 0) < 0
       );
-      return false;
+
+      if (hasInvalid) {
+        nextErrors.items =
+          "Each item must have product, qty > 0, and valid rate";
+      }
     }
 
     if (serviceType === "TABLE" && !tableNo.trim()) {
-      Alert.alert("Validation", "Table no is required for table KOT");
-      return false;
+      nextErrors.table = "Table no is required for table KOT";
     }
 
     if (serviceType === "ROOM" && !bookingId) {
-      Alert.alert("Validation", "Please select a checked-in room");
-      return false;
+      nextErrors.room = "Please select a checked-in room";
     }
 
+    setOrderErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      Alert.alert("Validation", "Please fix the highlighted fields.");
+      return false;
+    }
     return true;
   };
 
@@ -527,25 +541,44 @@ const KotEntryScreen: React.FC = () => {
         />
 
         {serviceType === "TABLE" ? (
-          <AppInput
-            label="Table No"
-            value={tableNo}
-            onChangeText={setTableNo}
-            placeholder="Enter table number"
-            editable={!isView || canEditOrCancel}
-          />
+          <>
+            <AppInput
+              label="Table No"
+              value={tableNo}
+              onChangeText={(val) => {
+                setTableNo(val);
+                if (orderErrors.table) {
+                  setOrderErrors((prev) => ({ ...prev, table: "" }));
+                }
+              }}
+              placeholder="Enter table number"
+              editable={!isView || canEditOrCancel}
+            />
+            {orderErrors.table ? (
+              <Text style={{ color: theme.colors.error, fontSize: 12 }}>
+                {orderErrors.table}
+              </Text>
+            ) : null}
+          </>
         ) : (
-          <AppInput
-            label="Checked-in Room"
-            value={
-              isView
-                ? detail?.kot?.display_label || detail?.kot?.room_no || ""
-                : getSelectedRoomLabel()
-            }
-            editable={false}
-            onPress={isView ? undefined : () => setRoomPickerVisible(true)}
-            placeholder="Select checked-in room"
-          />
+          <>
+            <AppInput
+              label="Checked-in Room"
+              value={
+                isView
+                  ? detail?.kot?.display_label || detail?.kot?.room_no || ""
+                  : getSelectedRoomLabel()
+              }
+              editable={false}
+              onPress={isView ? undefined : () => setRoomPickerVisible(true)}
+              placeholder="Select checked-in room"
+            />
+            {orderErrors.room ? (
+              <Text style={{ color: theme.colors.error, fontSize: 12 }}>
+                {orderErrors.room}
+              </Text>
+            ) : null}
+          </>
         )}
 
         <AppInput
@@ -581,6 +614,18 @@ const KotEntryScreen: React.FC = () => {
               Add one or more products to create this KOT
             </Text>
           </View>
+        ) : null}
+
+        {orderErrors.items ? (
+          <Text
+            style={{
+              color: theme.colors.error,
+              fontSize: 12,
+              marginBottom: 4,
+            }}
+          >
+            {orderErrors.items}
+          </Text>
         ) : null}
 
         {items.map((item, index) => (

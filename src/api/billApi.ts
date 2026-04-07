@@ -5,7 +5,11 @@ import {
   BillListParams,
   CreateBillPayload,
   CreateBillFromKotPayload,
+  CreateBillFromBookingPayload,
   BillPaymentStatus,
+  MarkPaidPayload,
+  MarkPaidResponse,
+  toBackendBillPaymentStatus,
 } from "../modules/bill/types";
 
 export const billApi = {
@@ -24,18 +28,44 @@ export const billApi = {
     return res.data;
   },
 
-  async createBillFromKot(payload: CreateBillFromKotPayload): Promise<BillDetailResponse> {
-    const res = await httpClient.post<BillDetailResponse>("/bills/from-kot", payload);
+  async createBillFromKot(
+    payload: CreateBillFromKotPayload
+  ): Promise<BillDetailResponse> {
+    const res = await httpClient.post<BillDetailResponse>(
+      "/bills/from-kot",
+      payload
+    );
+    return res.data;
+  },
+
+  async createBillFromBooking(
+    payload: CreateBillFromBookingPayload
+  ): Promise<BillDetailResponse> {
+    const res = await httpClient.post<BillDetailResponse>(
+      "/bills/from-booking",
+      payload
+    );
     return res.data;
   },
 
   async updatePaymentStatus(
     id: number,
-    payment_status: BillPaymentStatus
+    paymentStatus: BillPaymentStatus
   ): Promise<Bill> {
     const res = await httpClient.patch<Bill>(`/bills/${id}/payment-status`, {
-      payment_status,
+      payment_status: toBackendBillPaymentStatus(paymentStatus),
     });
+    return res.data;
+  },
+
+  async markPaid(
+    id: number,
+    payload: MarkPaidPayload
+  ): Promise<MarkPaidResponse> {
+    const res = await httpClient.post<MarkPaidResponse>(
+      `/bills/${id}/mark-paid`,
+      payload
+    );
     return res.data;
   },
 

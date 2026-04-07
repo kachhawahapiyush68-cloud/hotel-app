@@ -1,36 +1,54 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { View, FlatList, RefreshControl, Text, Alert } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import { useNavigation, useIsFocused } from "@react-navigation/native";
 import { useThemeStore } from "../../store/themeStore";
 import { useBookingStore } from "../booking/store";
 import Card from "../../shared/components/Card";
 import Loader from "../../shared/components/Loader";
 import AppButton from "../../shared/components/AppButton";
 import { formatDateTime } from "../../shared/utils/date";
-import { bookingApi } from "../../api/bookingApi";
-import { useNavigation, useIsFocused } from "@react-navigation/native";
+import { bookingApi, Booking } from "../../api/bookingApi";
 
-const InHouseListScreen: React.FC = () => {
+const PendingBillingListScreen: React.FC = () => {
   const { theme } = useThemeStore();
   const colors = theme.colors;
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
-
   const { setCurrentManual } = useBookingStore();
-  const [items, setItems] = useState<any[]>([]);
+
+  const [items, setItems] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const loadInHouse = useCallback(async () => {
+  const loadCheckedOutPending = useCallback(async () => {
     try {
       setLoading(true);
+
       const today = new Date().toISOString().slice(0, 10);
-      const data = await bookingApi.stayovers({ date: today });
-      setItems(Array.isArray(data) ? data : []);
+      const checkedOut = await bookingApi.departures({ date: today });
+
+      const rows = Array.isArray(checkedOut) ? checkedOut : [];
+      const pending: Booking[] = [];
+
+      for (const booking of rows) {
+        try {
+          const billing = await bookingApi.billing(booking.booking_id);
+          const bills = Array.isArray(billing?.bills) ? billing.bills : [];
+          if (bills.length === 0) {
+            pending.push(booking);
+          }
+        } catch (e) {
+          pending.push(booking);
+        }
+      }
+
+      setItems(pending);
     } catch (e: any) {
-      console.log("load in-house error", e);
       Alert.alert(
         "Error",
-        e?.response?.data?.message || e?.message || "Could not load in-house stays."
+        e?.response?.data?.message ||
+          e?.message ||
+          "Could not load pending billing stays."
       );
     } finally {
       setLoading(false);
@@ -39,22 +57,19 @@ const InHouseListScreen: React.FC = () => {
 
   useEffect(() => {
     if (isFocused) {
-      loadInHouse();
+      loadCheckedOutPending();
     }
-  }, [isFocused, loadInHouse]);
+  }, [isFocused, loadCheckedOutPending]);
 
-  const openInStayView = (booking: any) => {
+  const openStayView = (booking: Booking) => {
     const derivedFolioId =
       Number(booking?.folio_id || 0) > 0 ? Number(booking.folio_id) : 0;
 
     const derivedFolioNo =
       booking?.folio_no ||
-      (derivedFolioId ? `FOL-${derivedFolioId}` : `FOL-${booking?.booking_id || "NA"}`);
-
-    if (!booking?.booking_id) {
-      Alert.alert("Error", "Booking not found.");
-      return;
-    }
+      (derivedFolioId
+        ? `FOL-${derivedFolioId}`
+        : `FOL-${booking?.booking_id || "NA"}`);
 
     setCurrentManual(booking, {
       folio_id: derivedFolioId,
@@ -92,25 +107,20 @@ const InHouseListScreen: React.FC = () => {
             fontWeight: "600",
           }}
         >
-          In-house stays
+          Pending billing
         </Text>
 
-        <View style={{ flexDirection: "row" }}>
-          <AppButton
-            title="Pending Billing"
-            size="small"
-            onPress={() => navigation.navigate("PendingBillingList")}
-            style={{ marginRight: 8 }}
-          />
-          <AppButton title="Refresh" size="small" onPress={loadInHouse} />
-        </View>
+        <AppButton title="Refresh" size="small" onPress={loadCheckedOutPending} />
       </View>
 
       <FlatList
         data={items}
         keyExtractor={(item) => String(item.booking_id)}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={loadInHouse} />
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={loadCheckedOutPending}
+          />
         }
         contentContainerStyle={{
           paddingHorizontal: 12,
@@ -118,7 +128,7 @@ const InHouseListScreen: React.FC = () => {
           paddingTop: 4,
         }}
         renderItem={({ item }) => (
-          <Card style={{ marginBottom: 10 }} onPress={() => openInStayView(item)}>
+          <Card style={{ marginBottom: 10 }} onPress={() => openStayView(item)}>
             <View
               style={{
                 flexDirection: "row",
@@ -129,7 +139,7 @@ const InHouseListScreen: React.FC = () => {
             >
               <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <Ionicons
-                  name="bed-outline"
+                  name="receipt-outline"
                   size={18}
                   color={colors.primary}
                   style={{ marginRight: 6 }}
@@ -166,9 +176,9 @@ const InHouseListScreen: React.FC = () => {
                 marginTop: 2,
               }}
             >
-              Check-in:{" "}
+              Checkout:{" "}
               {formatDateTime(
-                item.actual_check_in_datetime || item.check_in_datetime
+                item.actual_check_out_datetime || item.check_out_datetime
               )}
             </Text>
 
@@ -194,9 +204,9 @@ const InHouseListScreen: React.FC = () => {
 
             <View style={{ marginTop: 8, alignItems: "flex-end" }}>
               <AppButton
-                title="Open in Stay View"
+                title="Open for Billing"
                 size="small"
-                onPress={() => openInStayView(item)}
+                onPress={() => openStayView(item)}
               />
             </View>
           </Card>
@@ -205,7 +215,7 @@ const InHouseListScreen: React.FC = () => {
           !loading ? (
             <View style={{ padding: 20, alignItems: "center" }}>
               <Text style={{ color: colors.textSecondary }}>
-                No in-house stays found.
+                No checked-out stays pending billing.
               </Text>
             </View>
           ) : null
@@ -215,4 +225,4 @@ const InHouseListScreen: React.FC = () => {
   );
 };
 
-export default InHouseListScreen;
+export default PendingBillingListScreen;

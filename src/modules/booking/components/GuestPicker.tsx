@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Alert, Modal, View } from "react-native";
 import AppInput from "../../../shared/components/AppInput";
 import AppButton from "../../../shared/components/AppButton";
@@ -20,39 +20,41 @@ export const GuestPicker: React.FC<Props> = ({ value, onChange }) => {
 
   const [visible, setVisible] = useState(false);
   const [items, setItems] = useState<SelectItem[]>([]);
-  const [label, setLabel] = useState<string>("");
+  const [label, setLabel] = useState("");
 
   const [guestFormVisible, setGuestFormVisible] = useState(false);
   const [savingGuest, setSavingGuest] = useState(false);
 
-  const loadGuests = async (selectedGuestId?: number) => {
-    try {
-      const guests = await guestApi.list();
-      const data: SelectItem[] = guests.map((g: Guest) => {
-        const name = `${g.first_name ?? ""} ${g.last_name ?? ""}`.trim();
-        return {
-          value: g.guest_id,
-          label: name || g.mobile || `Guest #${g.guest_id}`,
-        };
-      });
+  const loadGuests = useCallback(
+    async (selectedGuestId?: number) => {
+      try {
+        const guests = await guestApi.list();
 
-      setItems(data);
+        const data: SelectItem[] = guests.map((g: Guest) => {
+          const name = `${g.first_name ?? ""} ${g.last_name ?? ""}`.trim();
+          return {
+            value: g.guest_id,
+            label: name || g.mobile || `Guest #${g.guest_id}`,
+          };
+        });
 
-      const finalId = selectedGuestId ?? value;
-      if (finalId) {
-        const current = data.find((x) => Number(x.value) === Number(finalId));
-        if (current) {
-          setLabel(current.label);
+        setItems(data);
+
+        const finalId = selectedGuestId ?? value;
+        if (finalId) {
+          const current = data.find((x) => Number(x.value) === Number(finalId));
+          setLabel(current?.label || "");
         }
+      } catch (e) {
+        console.log("GuestPicker load error", e);
       }
-    } catch (e) {
-      console.log("GuestPicker load error", e);
-    }
-  };
+    },
+    [value]
+  );
 
   useEffect(() => {
     loadGuests();
-  }, []);
+  }, [loadGuests]);
 
   useEffect(() => {
     if (!value || items.length === 0) return;

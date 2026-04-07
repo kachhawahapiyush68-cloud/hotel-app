@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Alert, View } from "react-native";
+import { View, Text } from "react-native";
 import AppInput from "../../../shared/components/AppInput";
 import AppButton from "../../../shared/components/AppButton";
 import { useThemeStore } from "../../../store/themeStore";
@@ -64,6 +64,8 @@ const BookingForm: React.FC<Props> = ({
   const [numAdult, setNumAdult] = useState(String(initial.num_adult ?? 1));
   const [numChild, setNumChild] = useState(String(initial.num_child ?? 0));
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   const handleRangeChange = (start: string, end: string) => {
     setStartDate(start);
     setEndDate(end);
@@ -76,50 +78,52 @@ const BookingForm: React.FC<Props> = ({
     return toMysqlDateTime(dt);
   };
 
-  const isValidTime = (value: string) => {
-    return /^([01]\d|2[0-3]):([0-5]\d)$/.test(value);
+  const isValidTime = (value: string) =>
+    /^([01]\d|2[0-3]):([0-5]\d)$/.test(value);
+
+  const liveNights = useMemo(() => {
+    if (!startDate || !endDate) return 0;
+    const s = new Date(startDate);
+    const e = new Date(endDate);
+    const diff = e.getTime() - s.getTime();
+    if (Number.isNaN(diff) || diff < 0) return 0;
+    return Math.max(1, Math.round(diff / (1000 * 60 * 60 * 24)));
+  }, [startDate, endDate]);
+
+  const validate = (): boolean => {
+    const nextErrors: Record<string, string> = {};
+
+    if (!guestId) nextErrors.guest = "Please select a guest";
+    if (!roomId) nextErrors.room = "Please select a room";
+    if (!startDate || !endDate) {
+      nextErrors.dates = "Please select stay dates";
+    }
+    if (!isValidTime(checkInTime)) {
+      nextErrors.checkInTime = "Invalid check-in time. Use HH:mm";
+    }
+    if (!isValidTime(checkOutTime)) {
+      nextErrors.checkOutTime = "Invalid check-out time. Use HH:mm";
+    }
+    if (startDate && endDate && new Date(endDate) < new Date(startDate)) {
+      nextErrors.dates = "Check-out date cannot be before check-in date";
+    }
+
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
   };
 
   const handleSubmit = () => {
-    if (!guestId) {
-      Alert.alert("Validation", "Please select a guest");
-      return;
-    }
-
-    if (!roomId) {
-      Alert.alert("Validation", "Please select a room");
-      return;
-    }
-
-    if (!startDate || !endDate) {
-      Alert.alert("Validation", "Please select stay dates");
-      return;
-    }
-
-    if (!isValidTime(checkInTime)) {
-      Alert.alert("Validation", "Invalid check-in time. Use HH:mm");
-      return;
-    }
-
-    if (!isValidTime(checkOutTime)) {
-      Alert.alert("Validation", "Invalid check-out time. Use HH:mm");
-      return;
-    }
-
-    if (new Date(endDate) < new Date(startDate)) {
-      Alert.alert("Validation", "Check-out date cannot be before check-in date");
-      return;
-    }
+    if (!validate()) return;
 
     const checkInDT = buildDateTime(startDate, checkInTime);
     const checkOutDT = buildDateTime(endDate, checkOutTime);
 
     const payload: BookingCreateInput = {
-      guest_id: guestId,
-      room_id: roomId,
+      guest_id: guestId!,
+      room_id: roomId!,
       check_in_datetime: checkInDT,
       check_out_datetime: checkOutDT,
-      nights: Number(nights) || 1,
+      nights: Number(nights) || liveNights || 1,
       num_adult: Number(numAdult) || 1,
       num_child: Number(numChild) || 0,
       status: initial.status,
@@ -130,6 +134,8 @@ const BookingForm: React.FC<Props> = ({
     onSubmit(payload);
   };
 
+  const helperTextColor = theme.colors.textSecondary;
+
   return (
     <View
       style={{
@@ -138,13 +144,40 @@ const BookingForm: React.FC<Props> = ({
       }}
     >
       <GuestPicker value={guestId} onChange={setGuestId} />
+      {errors.guest ? (
+        <Text style={{ color: theme.colors.error, fontSize: 12 }}>
+          {errors.guest}
+        </Text>
+      ) : null}
+
       <RoomPicker value={roomId} onChange={setRoomId} />
+      {errors.room ? (
+        <Text style={{ color: theme.colors.error, fontSize: 12 }}>
+          {errors.room}
+        </Text>
+      ) : null}
 
       <CalendarRangePicker
         startDate={startDate}
         endDate={endDate}
         onChange={handleRangeChange}
       />
+      {errors.dates ? (
+        <Text style={{ color: theme.colors.error, fontSize: 12 }}>
+          {errors.dates}
+        </Text>
+      ) : (
+        <Text
+          style={{
+            color: helperTextColor,
+            fontSize: 12,
+            marginTop: 4,
+          }}
+        >
+          Stay: {startDate} → {endDate} • {liveNights || 1} night
+          {liveNights > 1 ? "s" : ""}
+        </Text>
+      )}
 
       <View style={{ flexDirection: "row", marginTop: 8 }}>
         <View style={{ flex: 1, marginRight: 4 }}>
@@ -152,16 +185,37 @@ const BookingForm: React.FC<Props> = ({
             label="Check-in time"
             value={checkInTime}
             placeholder="HH:mm"
-            onChangeText={setCheckInTime}
+            onChangeText={(val) => {
+              setCheckInTime(val);
+              if (errors.checkInTime) {
+                setErrors((prev) => ({ ...prev, checkInTime: "" }));
+              }
+            }}
           />
+          {errors.checkInTime ? (
+            <Text style={{ color: theme.colors.error, fontSize: 12 }}>
+              {errors.checkInTime}
+            </Text>
+          ) : null}
         </View>
+
         <View style={{ flex: 1, marginLeft: 4 }}>
           <AppInput
             label="Check-out time"
             value={checkOutTime}
             placeholder="HH:mm"
-            onChangeText={setCheckOutTime}
+            onChangeText={(val) => {
+              setCheckOutTime(val);
+              if (errors.checkOutTime) {
+                setErrors((prev) => ({ ...prev, checkOutTime: "" }));
+              }
+            }}
           />
+          {errors.checkOutTime ? (
+            <Text style={{ color: theme.colors.error, fontSize: 12 }}>
+              {errors.checkOutTime}
+            </Text>
+          ) : null}
         </View>
       </View>
 
@@ -170,6 +224,11 @@ const BookingForm: React.FC<Props> = ({
         value={nights}
         keyboardType="numeric"
         onChangeText={setNights}
+        helperText={
+          liveNights > 0
+            ? `Based on dates: ${liveNights} night${liveNights > 1 ? "s" : ""}`
+            : undefined
+        }
       />
 
       <AppInput

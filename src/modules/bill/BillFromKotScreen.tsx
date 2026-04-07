@@ -31,6 +31,7 @@ const BillFromKotScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProps>();
   const { theme } = useThemeStore();
+  const colors = theme.colors;
 
   const [loading, setLoading] = useState(false);
   const [kots, setKots] = useState<Kot[]>([]);
@@ -50,7 +51,10 @@ const BillFromKotScreen: React.FC = () => {
       const res = await fetchKotList("Open");
       setKots(res);
     } catch (e: any) {
-      Alert.alert("Error", e?.response?.data?.message || e?.message || "Failed to load KOTs");
+      Alert.alert(
+        "Error",
+        e?.response?.data?.message || e?.message || "Failed to load KOTs"
+      );
     } finally {
       setLoading(false);
     }
@@ -93,7 +97,10 @@ const BillFromKotScreen: React.FC = () => {
         },
       ]);
     } catch (e: any) {
-      Alert.alert("Error", e?.response?.data?.message || e?.message || "Failed to generate bill");
+      Alert.alert(
+        "Error",
+        e?.response?.data?.message || e?.message || "Failed to generate bill"
+      );
     } finally {
       setLoading(false);
     }
@@ -103,14 +110,15 @@ const BillFromKotScreen: React.FC = () => {
     return <Loader />;
   }
 
-  const colors = theme.colors;
-
   return (
     <View style={[styles.wrapper, { backgroundColor: colors.background }]}>
-      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 24 }}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ paddingBottom: 24 }}
+      >
         <SectionTitle
           title="Generate Bill from KOT"
-          subtitle={`${selectedKotIds.length} selected`}
+          subtitle={`${selectedKots.length} selected`}
         />
 
         <AppInput

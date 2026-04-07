@@ -69,7 +69,7 @@ export interface CreateKotPayload {
   table_no?: string | null;
   room_id?: number | null;
   booking_id?: number | null;
-  status?: KotStatus; // usually omitted; backend defaults to Open
+  status?: KotStatus;
   notes?: string | null;
   items: CreateKotItemInput[];
 }
@@ -105,10 +105,10 @@ export interface Ledger {
   company_id: number;
   ledger_name: string;
   ledger_type: string;
-  opening_balance: number;
-  dr_cr_flag: "Dr" | "Cr";
-  is_system_ledger: number;
-  is_active: number;
+  opening_balance?: number | string;
+  dr_cr_flag?: "Dr" | "Cr";
+  is_system_ledger?: number;
+  is_active?: number;
   is_deleted?: number;
   created_at?: string;
   updated_at?: string;
@@ -119,18 +119,26 @@ export interface CreateLedgerPayload {
   ledger_name: string;
   ledger_type: string;
   opening_balance?: number;
-  dr_cr_flag: "Dr" | "Cr";
+  dr_cr_flag?: "Dr" | "Cr";
   is_system_ledger?: number;
   is_active?: number;
 }
 
 export interface UpdateLedgerPayload {
+  company_id?: number;
   ledger_name?: string;
   ledger_type?: string;
   opening_balance?: number;
   dr_cr_flag?: "Dr" | "Cr";
   is_system_ledger?: number;
   is_active?: number;
+}
+
+export interface LedgerSummaryResponse extends Ledger {
+  total_debit?: number;
+  total_credit?: number;
+  closing_balance?: number;
+  closing_flag?: "Dr" | "Cr";
 }
 
 // ───────── VOUCHER TYPES ─────────
@@ -141,21 +149,8 @@ export type VoucherType =
   | "Journal"
   | "Contra"
   | "Sales"
-  | "Purchase";
-
-export interface Voucher {
-  voucher_id?: number;
-  company_id: number;
-  voucher_no?: string;
-  voucher_date: string; // "YYYY-MM-DD" or ISO string
-  voucher_type: VoucherType | string;
-  narration?: string | null;
-  reference_no?: string | null;
-  created_by?: number | null;
-  is_deleted?: number;
-  created_at?: string;
-  updated_at?: string;
-}
+  | "Purchase"
+  | string;
 
 export interface VoucherDetail {
   voucher_detail_id?: number;
@@ -166,14 +161,23 @@ export interface VoucherDetail {
   is_deleted?: number;
   created_at?: string;
   updated_at?: string;
-
   ledger_name?: string;
   ledger_type?: string;
 }
 
-export interface VoucherDetailResponse {
-  voucher: Voucher;
-  details: VoucherDetail[];
+export interface Voucher {
+  voucher_id?: number;
+  company_id: number;
+  voucher_no: string;
+  voucher_date: string;
+  voucher_type: VoucherType;
+  narration?: string | null;
+  reference_no?: string | null;
+  created_by?: number | null;
+  is_deleted?: number;
+  created_at?: string;
+  updated_at?: string;
+  details?: VoucherDetail[];
 }
 
 export interface CreateVoucherDetailInput {
@@ -184,8 +188,19 @@ export interface CreateVoucherDetailInput {
 
 export interface CreateVoucherPayload {
   company_id?: number;
+  voucher_no?: string;
   voucher_date: string;
-  voucher_type: VoucherType | string;
+  voucher_type: VoucherType;
+  narration?: string;
+  reference_no?: string;
+  details: CreateVoucherDetailInput[];
+}
+
+export interface UpdateVoucherPayload {
+  company_id?: number;
+  voucher_no: string;
+  voucher_date: string;
+  voucher_type: VoucherType;
   narration?: string;
   reference_no?: string;
   details: CreateVoucherDetailInput[];

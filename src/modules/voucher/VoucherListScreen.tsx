@@ -1,5 +1,3 @@
-// src/modules/voucher/VoucherListScreen.tsx
-
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
@@ -15,7 +13,11 @@ import Card from "../../shared/components/Card";
 import AppButton from "../../shared/components/AppButton";
 import Loader from "../../shared/components/Loader";
 
-export default function VoucherListScreen({ navigation }: any) {
+type Props = {
+  navigation: any;
+};
+
+export default function VoucherListScreen({ navigation }: Props) {
   const [items, setItems] = useState<Voucher[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -30,7 +32,10 @@ export default function VoucherListScreen({ navigation }: any) {
       try {
         await loadData();
       } catch (e: any) {
-        Alert.alert("Error", e?.response?.data?.message || "Failed to load vouchers");
+        Alert.alert(
+          "Error",
+          e?.response?.data?.message || "Failed to load vouchers"
+        );
       } finally {
         setLoading(false);
       }
@@ -57,7 +62,10 @@ export default function VoucherListScreen({ navigation }: any) {
             await voucherApi.remove(item.voucher_id!);
             await loadData();
           } catch (e: any) {
-            Alert.alert("Error", e?.response?.data?.message || "Delete failed");
+            Alert.alert(
+              "Error",
+              e?.response?.data?.message || "Delete failed"
+            );
           }
         },
       },
@@ -84,9 +92,20 @@ export default function VoucherListScreen({ navigation }: any) {
             <Text style={styles.title}>{item.voucher_no}</Text>
             <Text style={styles.sub}>{item.voucher_type}</Text>
             <Text style={styles.sub}>{item.voucher_date}</Text>
-            {!!item.narration && <Text style={styles.sub}>{item.narration}</Text>}
+            {!!item.narration && (
+              <Text style={styles.sub}>{item.narration}</Text>
+            )}
 
             <View style={styles.actions}>
+              <AppButton
+                title="View"
+                variant="secondary"
+                onPress={() =>
+                  navigation.navigate("VoucherDetail", {
+                    voucherId: item.voucher_id,
+                  })
+                }
+              />
               <AppButton
                 title="Delete"
                 variant="danger"
@@ -95,6 +114,11 @@ export default function VoucherListScreen({ navigation }: any) {
             </View>
           </Card>
         )}
+        ListEmptyComponent={
+          <View style={styles.emptyWrap}>
+            <Text style={styles.emptyText}>No vouchers found</Text>
+          </View>
+        }
       />
     </View>
   );
@@ -106,4 +130,12 @@ const styles = StyleSheet.create({
   title: { fontSize: 16, fontWeight: "700" },
   sub: { color: "#666" },
   actions: { flexDirection: "row", gap: 10, marginTop: 8 },
+  emptyWrap: {
+    paddingVertical: 40,
+    alignItems: "center",
+  },
+  emptyText: {
+    color: "#666",
+    fontSize: 14,
+  },
 });

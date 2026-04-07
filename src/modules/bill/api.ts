@@ -4,7 +4,10 @@ import {
   BillDetailResponse,
   CreateBillPayload,
   CreateBillFromKotPayload,
+  CreateBillFromBookingPayload,
   BillPaymentStatus,
+  MarkPaidPayload,
+  MarkPaidResponse,
 } from "./types";
 
 export async function fetchBillList(billtype?: string): Promise<Bill[]> {
@@ -25,11 +28,24 @@ export async function createBillFromKot(
   return billApi.createBillFromKot(payload);
 }
 
+export async function createBillFromBooking(
+  payload: CreateBillFromBookingPayload
+): Promise<BillDetailResponse> {
+  return billApi.createBillFromBooking(payload);
+}
+
 export async function updateBillPaymentStatus(
   id: number,
   paymentStatus: BillPaymentStatus
 ): Promise<Bill> {
   return billApi.updatePaymentStatus(id, paymentStatus);
+}
+
+export async function markBillPaid(
+  id: number,
+  payload: MarkPaidPayload
+): Promise<MarkPaidResponse> {
+  return billApi.markPaid(id, payload);
 }
 
 export async function deleteBill(id: number): Promise<void> {

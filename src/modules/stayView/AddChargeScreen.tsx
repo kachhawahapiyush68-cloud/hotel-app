@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { ScrollView, Alert, View, Text } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import AppInput from "../../shared/components/AppInput";
@@ -18,24 +18,45 @@ const AddChargeScreen: React.FC = () => {
   const [taxAmount, setTaxAmount] = useState("0");
   const [loading, setLoading] = useState(false);
 
+  const amt = Number(amount) || 0;
+  const tax = Number(taxAmount || 0) || 0;
+  const total = useMemo(() => amt + Math.max(tax, 0), [amt, tax]);
+
+  const resolvedFolioId =
+    Number(currentFolio?.folio_id || 0) ||
+    Number((currentBooking as any)?.folio_id || 0) ||
+    0;
+
   const handleSave = async () => {
     if (loading) return;
 
-    const amt = Number(amount);
-    const tax = Number(taxAmount || 0);
-
     if (!currentBooking?.booking_id) {
-      Alert.alert("Error", "Booking not selected");
+      Alert.alert("Error", "Booking not selected.");
+      return;
+    }
+
+    if (!resolvedFolioId) {
+      Alert.alert("Error", "Folio not found for current stay.");
+      return;
+    }
+
+    if (String(currentBooking.status || "") !== "CheckedIn") {
+      Alert.alert("Not allowed", "Charges can be added only for checked-in stay.");
       return;
     }
 
     if (!chargeType.trim()) {
-      Alert.alert("Validation", "Charge type is required");
+      Alert.alert("Validation", "Charge type is required.");
       return;
     }
 
     if (!amt || amt <= 0) {
-      Alert.alert("Validation", "Enter valid amount");
+      Alert.alert("Validation", "Enter valid amount.");
+      return;
+    }
+
+    if (tax < 0) {
+      Alert.alert("Validation", "Tax amount cannot be negative.");
       return;
     }
 
@@ -44,7 +65,7 @@ const AddChargeScreen: React.FC = () => {
 
       const res = await postingApi.createExtraCharge({
         booking_id: currentBooking.booking_id,
-        charge_type: chargeType.trim(),
+        charge_type: chargeType.trim().toUpperCase(),
         amount: amt,
         tax_amount: tax > 0 ? tax : 0,
       });
@@ -52,24 +73,19 @@ const AddChargeScreen: React.FC = () => {
       Alert.alert(
         "Success",
         `Charge posted successfully\nPosting ID: ${res.posting_id}`,
-        [
-          {
-            text: "OK",
-            onPress: () => navigation.goBack(),
-          },
-        ]
+        [{ text: "OK", onPress: () => navigation.goBack() }]
       );
     } catch (e: any) {
       Alert.alert(
         "Error",
-        e?.response?.data?.message || e?.message || "Could not save charge"
+        e?.response?.data?.message || e?.message || "Could not save charge."
       );
     } finally {
       setLoading(false);
     }
   };
 
-  if (!currentBooking || !currentFolio) {
+  if (!currentBooking) {
     return (
       <View
         style={{
@@ -91,6 +107,7 @@ const AddChargeScreen: React.FC = () => {
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
       contentContainerStyle={{ padding: 16 }}
+      keyboardShouldPersistTaps="handled"
     >
       <Text
         style={{
@@ -103,15 +120,25 @@ const AddChargeScreen: React.FC = () => {
         Add extra charge
       </Text>
 
-      <View style={{ marginBottom: 12 }}>
+      <View
+        style={{
+          marginBottom: 12,
+          padding: 12,
+          borderRadius: 12,
+          backgroundColor: colors.surface,
+        }}
+      >
         <Text style={{ color: colors.textSecondary, marginBottom: 4 }}>
-          Booking ID: {currentBooking.booking_id}
+          Booking: #{currentBooking.booking_id}
         </Text>
         <Text style={{ color: colors.textSecondary, marginBottom: 4 }}>
-          Room ID: {currentBooking.room_id}
+          Room: {currentBooking.room_id}
         </Text>
         <Text style={{ color: colors.textSecondary }}>
-          Folio: {currentFolio.folio_no} (ID: {currentFolio.folio_id})
+          Folio:{" "}
+          {currentFolio?.folio_no ||
+            (resolvedFolioId ? `FOL-${resolvedFolioId}` : "-")}{" "}
+          (ID: {resolvedFolioId || 0})
         </Text>
       </View>
 
@@ -139,11 +166,15 @@ const AddChargeScreen: React.FC = () => {
         onChangeText={setTaxAmount}
         keyboardType="numeric"
         placeholder="0"
-        containerStyle={{ marginBottom: 12 }}
+        containerStyle={{ marginBottom: 8 }}
       />
 
+      <Text style={{ color: colors.textSecondary, marginBottom: 12 }}>
+        Total: ₹ {total.toFixed(2)}
+      </Text>
+
       <AppButton
-        title={loading ? "Please wait..." : "Save Charge"}
+        title={loading ? "Saving..." : "Save Charge"}
         onPress={handleSave}
         disabled={loading}
         style={{ marginTop: 8 }}

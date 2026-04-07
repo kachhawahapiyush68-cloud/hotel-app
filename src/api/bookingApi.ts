@@ -66,6 +66,7 @@ export interface CheckInResponse {
 export interface BookingBillingSummary {
   folios: any[];
   bills: any[];
+  postings?: any[];
 }
 
 export interface BookingBillResponse {
@@ -73,26 +74,61 @@ export interface BookingBillResponse {
   items: any[];
 }
 
+function normalizeBooking(row: any): Booking {
+  return {
+    ...row,
+    booking_id: Number(row?.booking_id || 0),
+    company_id: Number(row?.company_id || 0),
+    guest_id: Number(row?.guest_id || 0),
+    room_id: Number(row?.room_id || 0),
+    nights: Number(row?.nights || 0),
+    num_adult: Number(row?.num_adult || 0),
+    num_child: Number(row?.num_child || 0),
+    created_by:
+      row?.created_by === null || row?.created_by === undefined
+        ? null
+        : Number(row.created_by),
+    is_deleted: Number(row?.is_deleted || 0),
+    folio_id:
+      row?.folio_id === null || row?.folio_id === undefined
+        ? null
+        : Number(row.folio_id),
+    folio_no: row?.folio_no ?? null,
+    room_no: row?.room_no ?? null,
+    first_name: row?.first_name ?? null,
+    last_name: row?.last_name ?? null,
+  };
+}
+
+function normalizeBookingList(rows: any[]): Booking[] {
+  return Array.isArray(rows) ? rows.map(normalizeBooking) : [];
+}
+
 export const bookingApi = {
   async list(companyid?: number): Promise<Booking[]> {
     const params = companyid ? { companyid } : undefined;
     const res = await httpClient.get<Booking[]>("/bookings", { params });
-    return res.data;
+    return normalizeBookingList(res.data as any[]);
   },
 
   async get(id: number): Promise<Booking> {
     const res = await httpClient.get<Booking>(`/bookings/${id}`);
-    return res.data;
+    return normalizeBooking(res.data);
+  },
+
+  async getById(id: number): Promise<Booking> {
+    const res = await httpClient.get<Booking>(`/bookings/${id}`);
+    return normalizeBooking(res.data);
   },
 
   async create(input: BookingCreateInput): Promise<Booking> {
     const res = await httpClient.post<Booking>("/bookings", input);
-    return res.data;
+    return normalizeBooking(res.data);
   },
 
   async update(id: number, input: BookingUpdateInput): Promise<Booking> {
     const res = await httpClient.put<Booking>(`/bookings/${id}`, input);
-    return res.data;
+    return normalizeBooking(res.data);
   },
 
   async remove(id: number): Promise<void> {
@@ -104,43 +140,56 @@ export const bookingApi = {
       `/bookings/${id}/checkin`,
       { room_id }
     );
-    return res.data;
+    return {
+      ...res.data,
+      booking_id: Number(res.data.booking_id || 0),
+      folio_id: Number(res.data.folio_id || 0),
+      folio_no: String(res.data.folio_no || ""),
+    };
   },
 
-  async reservations(params?: { from?: string; to?: string }): Promise<Booking[]> {
+  async reservations(params?: {
+    from?: string;
+    to?: string;
+  }): Promise<Booking[]> {
     const res = await httpClient.get<Booking[]>("/bookings/reservations", {
       params,
     });
-    return res.data;
+    return normalizeBookingList(res.data as any[]);
   },
 
   async arrivals(params?: { date?: string }): Promise<Booking[]> {
     const res = await httpClient.get<Booking[]>("/bookings/arrivals", {
       params,
     });
-    return res.data;
+    return normalizeBookingList(res.data as any[]);
   },
 
   async stayovers(params?: { date?: string }): Promise<Booking[]> {
     const res = await httpClient.get<Booking[]>("/bookings/stayovers", {
       params,
     });
-    return res.data;
+    return normalizeBookingList(res.data as any[]);
   },
 
   async departures(params?: { date?: string }): Promise<Booking[]> {
     const res = await httpClient.get<Booking[]>("/bookings/departures", {
       params,
     });
-    return res.data;
+    return normalizeBookingList(res.data as any[]);
   },
 
-  async checkOut(id: number): Promise<{ booking_id: number }> {
-    const res = await httpClient.post<{ booking_id: number }>(
-      `/bookings/${id}/checkout`,
-      {}
-    );
-    return res.data;
+  async checkOut(
+    id: number
+  ): Promise<{ booking_id: number; status?: BookingStatus }> {
+    const res = await httpClient.post<{
+      booking_id: number;
+      status?: BookingStatus;
+    }>(`/bookings/${id}/checkout`, {});
+    return {
+      booking_id: Number(res.data.booking_id || 0),
+      status: res.data.status,
+    };
   },
 
   async billing(bookingId: number): Promise<BookingBillingSummary> {
@@ -150,11 +199,18 @@ export const bookingApi = {
     return res.data;
   },
 
-  async createBillFromBooking(bookingId: number): Promise<BookingBillResponse> {
-    const res = await httpClient.post<BookingBillResponse>("/bills/from-booking", {
-      booking_id: bookingId,
-      bill_type: "Room",
-    });
+  async createBillFromBooking(
+    bookingId: number,
+    requireCheckout: boolean = true
+  ): Promise<BookingBillResponse> {
+    const res = await httpClient.post<BookingBillResponse>(
+      "/bills/from-booking",
+      {
+        booking_id: Number(bookingId),
+        bill_type: "Room",
+        require_checkout: requireCheckout,
+      }
+    );
     return res.data;
   },
 };
