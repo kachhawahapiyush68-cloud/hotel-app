@@ -6,6 +6,12 @@ import AppButton from "../../shared/components/AppButton";
 import { postingApi } from "../../api/postingApi";
 import { useThemeStore } from "../../store/themeStore";
 import { useBookingStore } from "../booking/store";
+import {
+  getBookingGuestName,
+  getBookingRoomLabel,
+  getBookingMetaLine,
+} from "../../api/bookingApi";
+import { formatDateTime } from "../../shared/utils/date";
 
 const AddChargeScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -16,6 +22,7 @@ const AddChargeScreen: React.FC = () => {
   const [chargeType, setChargeType] = useState("EXTRA_CHARGE");
   const [amount, setAmount] = useState("");
   const [taxAmount, setTaxAmount] = useState("0");
+  const [paymentType, setPaymentType] = useState("CASH"); // CASH / CARD / UPI / ADVANCE / REFUND
   const [loading, setLoading] = useState(false);
 
   const amt = Number(amount) || 0;
@@ -26,6 +33,15 @@ const AddChargeScreen: React.FC = () => {
     Number(currentFolio?.folio_id || 0) ||
     Number((currentBooking as any)?.folio_id || 0) ||
     0;
+
+  const resolvedFolioNo =
+    currentFolio?.folio_no ||
+    (currentBooking as any)?.folio_no ||
+    (resolvedFolioId ? `FOL-${resolvedFolioId}` : "-");
+
+  const guestName = getBookingGuestName(currentBooking || undefined);
+  const roomLabel = getBookingRoomLabel(currentBooking || undefined);
+  const metaLine = getBookingMetaLine(currentBooking || undefined);
 
   const handleSave = async () => {
     if (loading) return;
@@ -60,21 +76,25 @@ const AddChargeScreen: React.FC = () => {
       return;
     }
 
+    if (!paymentType.trim()) {
+      Alert.alert("Validation", "Payment mode is required.");
+      return;
+    }
+
     try {
       setLoading(true);
 
-      const res = await postingApi.createExtraCharge({
+      await postingApi.createExtraCharge({
         booking_id: currentBooking.booking_id,
         charge_type: chargeType.trim().toUpperCase(),
         amount: amt,
         tax_amount: tax > 0 ? tax : 0,
+        payment_type: paymentType.trim().toUpperCase(),
       });
 
-      Alert.alert(
-        "Success",
-        `Charge posted successfully\nPosting ID: ${res.posting_id}`,
-        [{ text: "OK", onPress: () => navigation.goBack() }]
-      );
+      Alert.alert("Success", "Charge posted successfully.", [
+        { text: "OK", onPress: () => navigation.goBack() },
+      ]);
     } catch (e: any) {
       Alert.alert(
         "Error",
@@ -128,17 +148,34 @@ const AddChargeScreen: React.FC = () => {
           backgroundColor: colors.surface,
         }}
       >
-        <Text style={{ color: colors.textSecondary, marginBottom: 4 }}>
-          Booking: #{currentBooking.booking_id}
+        <Text
+          style={{
+            color: colors.text,
+            fontSize: 16,
+            fontWeight: "700",
+            marginBottom: 4,
+          }}
+        >
+          {guestName}
         </Text>
+
         <Text style={{ color: colors.textSecondary, marginBottom: 4 }}>
-          Room: {currentBooking.room_id}
+          {roomLabel}
         </Text>
+
+        {!!metaLine && (
+          <Text style={{ color: colors.textSecondary, marginBottom: 4 }}>
+            {metaLine}
+          </Text>
+        )}
+
+        <Text style={{ color: colors.textSecondary, marginBottom: 4 }}>
+          Folio: {resolvedFolioNo}
+        </Text>
+
         <Text style={{ color: colors.textSecondary }}>
-          Folio:{" "}
-          {currentFolio?.folio_no ||
-            (resolvedFolioId ? `FOL-${resolvedFolioId}` : "-")}{" "}
-          (ID: {resolvedFolioId || 0})
+          Stay: {formatDateTime(currentBooking.check_in_datetime)} →{" "}
+          {formatDateTime(currentBooking.check_out_datetime)}
         </Text>
       </View>
 
@@ -147,6 +184,15 @@ const AddChargeScreen: React.FC = () => {
         value={chargeType}
         onChangeText={setChargeType}
         placeholder="EXTRA_CHARGE / LAUNDRY / MINIBAR"
+        autoCapitalize="characters"
+        containerStyle={{ marginBottom: 12 }}
+      />
+
+      <AppInput
+        label="Payment Mode"
+        value={paymentType}
+        onChangeText={setPaymentType}
+        placeholder="CASH / CARD / UPI / ADVANCE / REFUND"
         autoCapitalize="characters"
         containerStyle={{ marginBottom: 12 }}
       />

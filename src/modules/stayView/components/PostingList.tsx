@@ -102,6 +102,7 @@ const PostingList: React.FC<Props> = ({ data, loading, canEdit, onChanged }) => 
         renderItem={({ item }) => {
           const amount = Number(item.amount || 0);
           const taxAmount = Number(item.tax_amount || 0);
+          const total = amount + taxAmount;
           const disabled = actionLoadingId === item.posting_id || !canEdit;
 
           return (
@@ -116,23 +117,24 @@ const PostingList: React.FC<Props> = ({ data, loading, canEdit, onChanged }) => 
             >
               <View style={styles.topRow}>
                 <Text style={[styles.title, { color: colors.text }]}>
-                  {item.charge_type}
-                </Text>
-                <Text style={{ color: colors.textSecondary, fontSize: 11 }}>
-                  #{item.posting_id}
+                  {String(item.charge_type || "").replace(/_/g, " ")}
                 </Text>
               </View>
 
               <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                Date: {item.posting_date}
+              </Text>
+
+              <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 2 }}>
                 Amount: ₹ {amount.toFixed(2)}
               </Text>
 
-              <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 2 }}>
                 Tax: ₹ {taxAmount.toFixed(2)}
               </Text>
 
-              <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-                Date: {item.posting_date}
+              <Text style={{ color: colors.text, fontSize: 12, fontWeight: "700", marginTop: 4 }}>
+                Total: ₹ {total.toFixed(2)}
               </Text>
 
               <View style={styles.buttonRow}>
@@ -159,7 +161,10 @@ const PostingList: React.FC<Props> = ({ data, loading, canEdit, onChanged }) => 
 
       <PostingEditModal
         visible={editVisible}
-        onClose={() => setEditVisible(false)}
+        onClose={() => {
+          setEditVisible(false);
+          setSelectedPosting(null);
+        }}
         onSave={handleSave}
         initialAmount={Number(selectedPosting?.amount || 0)}
         initialTaxAmount={Number(selectedPosting?.tax_amount || 0)}
@@ -184,6 +189,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 14,
     fontWeight: "700",
+    textTransform: "capitalize",
   },
   buttonRow: {
     flexDirection: "row",

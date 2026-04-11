@@ -32,9 +32,10 @@ export const GuestPicker: React.FC<Props> = ({ value, onChange }) => {
 
         const data: SelectItem[] = guests.map((g: Guest) => {
           const name = `${g.first_name ?? ""} ${g.last_name ?? ""}`.trim();
+          const mobile = g.mobile ? ` • ${g.mobile}` : "";
           return {
             value: g.guest_id,
-            label: name || g.mobile || `Guest #${g.guest_id}`,
+            label: name ? `${name}${mobile}` : g.mobile || `Guest #${g.guest_id}`,
           };
         });
 

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { View, Text } from "react-native";
+import { View, Text, TouchableOpacity } from "react-native";
 import AppInput from "../../../shared/components/AppInput";
 import AppButton from "../../../shared/components/AppButton";
 import { useThemeStore } from "../../../store/themeStore";
@@ -10,7 +10,7 @@ import { RoomPicker } from "./RoomPicker";
 import CalendarRangePicker from "./CalendarRangePicker";
 
 type Props = {
-  initial?: Partial<BookingCreateInput>;
+  initial?: Partial<BookingCreateInput & { booking_id?: number }>;
   onSubmit: (values: BookingCreateInput) => Promise<void> | void;
   submitting?: boolean;
 };
@@ -23,6 +23,8 @@ const extractTime = (datetime?: string, fallback = "00:00") => {
   const m = String(datetime).match(/(\d{2}):(\d{2})/);
   return m ? `${m[1]}:${m[2]}` : fallback;
 };
+
+const PAYMENT_OPTIONS = ["Cash", "Card", "UPI", "Other"];
 
 const BookingForm: React.FC<Props> = ({
   initial = {},
@@ -64,6 +66,15 @@ const BookingForm: React.FC<Props> = ({
   const [numAdult, setNumAdult] = useState(String(initial.num_adult ?? 1));
   const [numChild, setNumChild] = useState(String(initial.num_child ?? 0));
 
+  const [advanceAmount, setAdvanceAmount] = useState(
+    initial.advance_amount !== undefined && initial.advance_amount !== null
+      ? String(initial.advance_amount)
+      : ""
+  );
+  const [advancePaymentType, setAdvancePaymentType] = useState(
+    initial.advance_payment_type ?? ""
+  );
+
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleRangeChange = (start: string, end: string) => {
@@ -95,6 +106,7 @@ const BookingForm: React.FC<Props> = ({
 
     if (!guestId) nextErrors.guest = "Please select a guest";
     if (!roomId) nextErrors.room = "Please select a room";
+
     if (!startDate || !endDate) {
       nextErrors.dates = "Please select stay dates";
     }
@@ -108,6 +120,15 @@ const BookingForm: React.FC<Props> = ({
       nextErrors.dates = "Check-out date cannot be before check-in date";
     }
 
+    const advAmt = advanceAmount.trim() ? Number(advanceAmount) : 0;
+    if (advAmt < 0 || Number.isNaN(advAmt)) {
+      nextErrors.advance_amount = "Advance must be 0 or more";
+    }
+    if (advAmt > 0 && !advancePaymentType.trim()) {
+      nextErrors.advance_payment_type =
+        "Payment type is required when advance is taken";
+    }
+
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -117,6 +138,7 @@ const BookingForm: React.FC<Props> = ({
 
     const checkInDT = buildDateTime(startDate, checkInTime);
     const checkOutDT = buildDateTime(endDate, checkOutTime);
+    const advAmt = advanceAmount.trim() ? Number(advanceAmount) : 0;
 
     const payload: BookingCreateInput = {
       guest_id: guestId!,
@@ -126,9 +148,10 @@ const BookingForm: React.FC<Props> = ({
       nights: Number(nights) || liveNights || 1,
       num_adult: Number(numAdult) || 1,
       num_child: Number(numChild) || 0,
-      status: initial.status,
       reservation_no: initial.reservation_no ?? null,
       company_id: initial.company_id,
+      advance_amount: advAmt || undefined,
+      advance_payment_type: advAmt ? advancePaymentType.trim() || null : undefined,
     };
 
     onSubmit(payload);
@@ -226,7 +249,9 @@ const BookingForm: React.FC<Props> = ({
         onChangeText={setNights}
         helperText={
           liveNights > 0
-            ? `Based on dates: ${liveNights} night${liveNights > 1 ? "s" : ""}`
+            ? `Based on dates: ${liveNights} night${
+                liveNights > 1 ? "s" : ""
+              }`
             : undefined
         }
       />
@@ -244,6 +269,85 @@ const BookingForm: React.FC<Props> = ({
         keyboardType="numeric"
         onChangeText={setNumChild}
       />
+
+      <AppInput
+        label="Advance amount"
+        value={advanceAmount}
+        keyboardType="numeric"
+        onChangeText={(val) => {
+          setAdvanceAmount(val);
+          if (errors.advance_amount) {
+            setErrors((prev) => ({ ...prev, advance_amount: "" }));
+          }
+        }}
+      />
+      {errors.advance_amount ? (
+        <Text style={{ color: theme.colors.error, fontSize: 12 }}>
+          {errors.advance_amount}
+        </Text>
+      ) : null}
+
+      <View style={{ marginTop: 8 }}>
+        <Text
+          style={{
+            color: theme.colors.text,
+            fontSize: 13,
+            marginBottom: 4,
+          }}
+        >
+          Advance payment type
+        </Text>
+        <View
+          style={{
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+            overflow: "hidden",
+          }}
+        >
+          {PAYMENT_OPTIONS.map((opt, idx) => {
+            const selected = advancePaymentType === opt;
+            return (
+              <TouchableOpacity
+                key={opt}
+                onPress={() => {
+                  setAdvancePaymentType(opt);
+                  if (errors.advance_payment_type) {
+                    setErrors((prev) => ({
+                      ...prev,
+                      advance_payment_type: "",
+                    }));
+                  }
+                }}
+                style={{
+                  paddingVertical: 8,
+                  paddingHorizontal: 10,
+                  backgroundColor: selected
+                    ? theme.colors.primary + "11"
+                    : theme.colors.background,
+                  borderBottomWidth:
+                    idx === PAYMENT_OPTIONS.length - 1 ? 0 : 1,
+                  borderBottomColor: theme.colors.border,
+                }}
+              >
+                <Text
+                  style={{
+                    color: selected ? theme.colors.primary : theme.colors.text,
+                    fontSize: 13,
+                  }}
+                >
+                  {opt}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+      {errors.advance_payment_type ? (
+        <Text style={{ color: theme.colors.error, fontSize: 12 }}>
+          {errors.advance_payment_type}
+        </Text>
+      ) : null}
 
       <AppButton
         title={submitting ? "Saving..." : "Save Booking"}

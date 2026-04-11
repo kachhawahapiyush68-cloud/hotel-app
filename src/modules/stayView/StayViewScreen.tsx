@@ -6,7 +6,12 @@ import { useBookingStore } from "../booking/store";
 import { useThemeStore } from "../../store/themeStore";
 import AppButton from "../../shared/components/AppButton";
 import { formatDateTime } from "../../shared/utils/date";
-import { bookingApi } from "../../api/bookingApi";
+import {
+  bookingApi,
+  getBookingGuestName,
+  getBookingRoomLabel,
+  getBookingMetaLine,
+} from "../../api/bookingApi";
 import { postingApi, RoomPosting } from "../../api/postingApi";
 import PostingList from "./components/PostingList";
 
@@ -38,6 +43,24 @@ const StayViewScreen: React.FC = () => {
       (resolvedFolioId ? `FOL-${resolvedFolioId}` : "-")
     );
   }, [currentBooking, currentFolio, resolvedFolioId]);
+
+  const guestName = useMemo(
+    () => getBookingGuestName(currentBooking || undefined),
+    [currentBooking]
+  );
+
+  const roomLabel = useMemo(
+    () => getBookingRoomLabel(currentBooking || undefined),
+    [currentBooking]
+  );
+
+  const metaLine = useMemo(
+    () => getBookingMetaLine(currentBooking || undefined),
+    [currentBooking]
+  );
+
+  const isCheckedIn = String(currentBooking?.status || "") === "CheckedIn";
+  const isCheckedOut = String(currentBooking?.status || "") === "CheckedOut";
 
   const ensureFolioLoaded = useCallback(async () => {
     if (!bookingId || !currentBooking) return null;
@@ -97,6 +120,43 @@ const StayViewScreen: React.FC = () => {
     }
   }, [bookingId, currentBooking, resolvedFolioId, resolvedFolioNo, setCurrentManual]);
 
+  const refreshCurrentBooking = useCallback(async () => {
+    if (!bookingId || !currentBooking) return;
+
+    try {
+      const detail = await bookingApi.getById(bookingId);
+      const nextBooking =
+        (detail as any)?.booking || (detail as any)?.data || detail || currentBooking;
+
+      setCurrentManual(
+        {
+          ...currentBooking,
+          ...nextBooking,
+        },
+        {
+          folio_id: Number(
+            nextBooking?.folio_id || currentFolio?.folio_id || resolvedFolioId || 0
+          ),
+          folio_no:
+            nextBooking?.folio_no ||
+            currentFolio?.folio_no ||
+            resolvedFolioNo ||
+            "-",
+        }
+      );
+    } catch (e) {
+      console.log("refreshCurrentBooking error", e);
+    }
+  }, [
+    bookingId,
+    currentBooking,
+    currentFolio?.folio_id,
+    currentFolio?.folio_no,
+    resolvedFolioId,
+    resolvedFolioNo,
+    setCurrentManual,
+  ]);
+
   const loadPostings = useCallback(async () => {
     if (!currentBooking?.booking_id) {
       setPostings([]);
@@ -120,9 +180,12 @@ const StayViewScreen: React.FC = () => {
       setPostingsLoading(true);
       const rows = await postingApi.listByFolio(folio.folio_id);
       setPostings(Array.isArray(rows) ? rows : []);
-    } catch (e) {
+    } catch (e: any) {
       console.log("load postings error", e);
-      Alert.alert("Error", "Could not load folio postings.");
+      Alert.alert(
+        "Error",
+        e?.response?.data?.message || e?.message || "Could not load folio postings."
+      );
     } finally {
       setPostingsLoading(false);
     }
@@ -168,9 +231,6 @@ const StayViewScreen: React.FC = () => {
     );
   }
 
-  const isCheckedIn = String(currentBooking.status || "") === "CheckedIn";
-  const isCheckedOut = String(currentBooking.status || "") === "CheckedOut";
-
   const grossAmount = postings.reduce(
     (sum, row) => sum + Number(row.amount || 0),
     0
@@ -186,12 +246,12 @@ const StayViewScreen: React.FC = () => {
 
     try {
       setCheckoutLoading(true);
+
       const updated = await bookingApi.checkOut(bookingId);
 
       setCurrentManual(
         {
           ...currentBooking,
-          ...updated,
           status: updated?.status || "CheckedOut",
         },
         {
@@ -200,13 +260,14 @@ const StayViewScreen: React.FC = () => {
         }
       );
 
+      await refreshCurrentBooking();
+      await loadPostings();
+
       Alert.alert("Checked out", "Guest has been checked out.");
     } catch (e: any) {
       Alert.alert(
         "Error",
-        e?.response?.data?.message ||
-          e?.message ||
-          "Could not check out."
+        e?.response?.data?.message || e?.message || "Could not check out."
       );
     } finally {
       setCheckoutLoading(false);
@@ -224,7 +285,6 @@ const StayViewScreen: React.FC = () => {
       setCurrentManual(
         {
           ...currentBooking,
-          ...updated,
           status: updated?.status || "CheckedOut",
         },
         {
@@ -233,17 +293,16 @@ const StayViewScreen: React.FC = () => {
         }
       );
 
+      await refreshCurrentBooking();
+
       const summary = await bookingApi.billing(bookingId);
       const existingBills = Array.isArray(summary?.bills) ? summary.bills : [];
       if (existingBills.length > 0) {
-        Alert.alert(
-          "Bill Exists",
-          "A bill already exists for this stay."
-        );
+        Alert.alert("Bill Exists", "A bill already exists for this stay.");
         return;
       }
 
-      const res = await bookingApi.createBillFromBooking(bookingId, true);
+      const res = await bookingApi.createBillFromBooking(bookingId, false);
 
       Alert.alert("Success", `Bill no: ${res.bill.bill_no}`, [
         {
@@ -276,14 +335,11 @@ const StayViewScreen: React.FC = () => {
       const summary = await bookingApi.billing(bookingId);
       const existingBills = Array.isArray(summary?.bills) ? summary.bills : [];
       if (existingBills.length > 0) {
-        Alert.alert(
-          "Bill Exists",
-          "A bill already exists for this stay."
-        );
+        Alert.alert("Bill Exists", "A bill already exists for this stay.");
         return;
       }
 
-      const res = await bookingApi.createBillFromBooking(bookingId, true);
+      const res = await bookingApi.createBillFromBooking(bookingId, false);
 
       Alert.alert("Bill generated", `Bill no: ${res.bill.bill_no}`, [
         {
@@ -298,9 +354,7 @@ const StayViewScreen: React.FC = () => {
     } catch (e: any) {
       Alert.alert(
         "Error",
-        e?.response?.data?.message ||
-          e?.message ||
-          "Could not generate bill."
+        e?.response?.data?.message || e?.message || "Could not generate bill."
       );
     } finally {
       setBillingLoading(false);
@@ -371,6 +425,7 @@ const StayViewScreen: React.FC = () => {
 
     try {
       setRoomRentLoading(true);
+
       const res = await postingApi.postRoomRent({
         booking_id: bookingId,
       });
@@ -379,7 +434,7 @@ const StayViewScreen: React.FC = () => {
 
       Alert.alert(
         "Room rent posted",
-        `Posting ID: ${res.posting_id}\nAmount: ${Number(res.amount).toFixed(2)}`
+        `Amount: ₹ ${Number(res.amount).toFixed(2)}`
       );
     } catch (e: any) {
       Alert.alert(
@@ -396,60 +451,110 @@ const StayViewScreen: React.FC = () => {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={{ padding: 16, paddingBottom: 28 }}
+      contentContainerStyle={{ padding: 16 }}
     >
-      <Text
+      <View
         style={{
-          color: colors.text,
-          fontSize: 20,
-          fontWeight: "700",
-          marginBottom: 8,
+          backgroundColor: colors.surface,
+          borderRadius: 16,
+          padding: 14,
+          marginBottom: 12,
         }}
       >
-        Stay details
-      </Text>
+        <Text
+          style={{
+            color: colors.text,
+            fontSize: 20,
+            fontWeight: "700",
+            marginBottom: 4,
+          }}
+        >
+          {guestName}
+        </Text>
 
-      <View style={{ marginBottom: 12 }}>
-        <Text style={{ color: colors.textSecondary, marginBottom: 4 }}>
-          Booking: #{currentBooking.booking_id}
+        <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+          {roomLabel}
         </Text>
-        <Text style={{ color: colors.textSecondary, marginBottom: 4 }}>
-          Room: {currentBooking.room_id}
-        </Text>
-        <Text style={{ color: colors.textSecondary, marginBottom: 4 }}>
-          Guest ID: {currentBooking.guest_id}
-        </Text>
-      </View>
 
-      <View style={{ marginBottom: 16 }}>
-        <Text style={{ color: colors.textSecondary }}>
-          Folio: {folioLoading ? "Loading..." : resolvedFolioNo} (ID:{" "}
-          {folioLoading ? "..." : resolvedFolioId || 0})
-        </Text>
-      </View>
+        {!!metaLine && (
+          <Text
+            style={{
+              color: colors.textSecondary,
+              fontSize: 12,
+              marginTop: 4,
+            }}
+          >
+            {metaLine}
+          </Text>
+        )}
 
-      <View style={{ marginBottom: 16 }}>
-        <Text style={{ color: colors.textSecondary, marginBottom: 4 }}>
+        {!!currentBooking.reservation_no && (
+          <Text
+            style={{
+              color: colors.textSecondary,
+              fontSize: 12,
+              marginTop: 4,
+            }}
+          >
+            Reservation: {currentBooking.reservation_no}
+          </Text>
+        )}
+
+        <Text
+          style={{
+            color: colors.textSecondary,
+            fontSize: 12,
+            marginTop: 4,
+          }}
+        >
           Status: {currentBooking.status}
         </Text>
-        <Text style={{ color: colors.textSecondary, marginBottom: 4 }}>
+
+        <Text
+          style={{
+            color: colors.textSecondary,
+            fontSize: 12,
+            marginTop: 4,
+          }}
+        >
+          Folio: {resolvedFolioNo}
+        </Text>
+
+        <Text
+          style={{
+            color: colors.textSecondary,
+            fontSize: 12,
+            marginTop: 4,
+          }}
+        >
           Check-in:{" "}
           {formatDateTime(
             currentBooking.actual_check_in_datetime ||
               currentBooking.check_in_datetime
           )}
         </Text>
-        <Text style={{ color: colors.textSecondary }}>
-          Planned Check-out: {formatDateTime(currentBooking.check_out_datetime)}
+
+        <Text
+          style={{
+            color: colors.textSecondary,
+            fontSize: 12,
+            marginTop: 4,
+          }}
+        >
+          Check-out:{" "}
+          {formatDateTime(
+            currentBooking.actual_check_out_datetime ||
+              currentBooking.check_out_datetime
+          )}
         </Text>
       </View>
 
       <View
         style={{
           backgroundColor: colors.surface,
-          borderRadius: 14,
+          borderRadius: 16,
           padding: 14,
-          marginBottom: 16,
+          marginBottom: 12,
         }}
       >
         <Text
@@ -463,26 +568,64 @@ const StayViewScreen: React.FC = () => {
           Folio summary
         </Text>
 
-        <Text style={{ color: colors.textSecondary, marginBottom: 4 }}>
-          Postings: {postingsLoading ? "Loading..." : postings.length}
+        <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+          Charges: ₹ {grossAmount.toFixed(2)}
         </Text>
-        <Text style={{ color: colors.textSecondary, marginBottom: 4 }}>
-          Gross: ₹ {grossAmount.toFixed(2)}
-        </Text>
-        <Text style={{ color: colors.textSecondary, marginBottom: 4 }}>
+        <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>
           Tax: ₹ {taxAmount.toFixed(2)}
         </Text>
-        <Text style={{ color: colors.text, fontWeight: "700" }}>
-          Net: ₹ {netAmount.toFixed(2)}
+        <Text
+          style={{
+            color: colors.text,
+            fontSize: 13,
+            fontWeight: "700",
+            marginTop: 6,
+          }}
+        >
+          Total: ₹ {netAmount.toFixed(2)}
         </Text>
+
+        {(folioLoading || postingsLoading) && (
+          <Text style={{ color: colors.textSecondary, fontSize: 11, marginTop: 8 }}>
+            Loading folio details...
+          </Text>
+        )}
+      </View>
+
+      <View style={{ marginBottom: 12 }}>
+        <AppButton
+          title={roomRentLoading ? "Posting..." : "Post Room Rent"}
+          onPress={handlePostRoomRent}
+          disabled={roomRentLoading || !isCheckedIn}
+          style={{ marginBottom: 8 }}
+        />
+
+        <AppButton
+          title="Add Extra Charge"
+          variant="outline"
+          onPress={handleAddCharge}
+          disabled={!isCheckedIn}
+          style={{ marginBottom: 8 }}
+        />
+
+        <AppButton
+          title={
+            billingLoading
+              ? "Processing..."
+              : isCheckedOut
+              ? "Generate Bill"
+              : "Checkout / Billing"
+          }
+          onPress={handleBillingPress}
+          disabled={billingLoading || checkoutLoading}
+        />
       </View>
 
       <View
         style={{
           backgroundColor: colors.surface,
-          borderRadius: 14,
+          borderRadius: 16,
           padding: 14,
-          marginBottom: 16,
         }}
       >
         <Text
@@ -493,66 +636,15 @@ const StayViewScreen: React.FC = () => {
             marginBottom: 10,
           }}
         >
-          Folio postings
+          Postings
         </Text>
 
         <PostingList
           data={postings}
           loading={postingsLoading}
-          canEdit={isCheckedIn}
+          canEdit={!isCheckedOut}
           onChanged={loadPostings}
         />
-      </View>
-
-      <View style={{ marginTop: 8 }}>
-        <View style={{ marginBottom: 10 }}>
-          <AppButton
-            title={roomRentLoading ? "Posting..." : "Post Room Rent"}
-            onPress={handlePostRoomRent}
-            disabled={roomRentLoading || !isCheckedIn}
-          />
-        </View>
-
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-          }}
-        >
-          <View style={{ flex: 1, marginRight: 8 }}>
-            <AppButton
-              title={checkoutLoading ? "Checking out..." : "Check-out"}
-              onPress={runCheckoutOnly}
-              disabled={checkoutLoading || !isCheckedIn}
-              size="small"
-            />
-          </View>
-
-          <View style={{ flex: 1, marginRight: 8 }}>
-            <AppButton
-              title="Add Charge"
-              onPress={handleAddCharge}
-              disabled={!isCheckedIn}
-              variant="outline"
-              size="small"
-            />
-          </View>
-
-          <View style={{ flex: 1 }}>
-            <AppButton
-              title={
-                billingLoading
-                  ? "Processing..."
-                  : isCheckedOut
-                  ? "Create Bill"
-                  : "Checkout / Bill"
-              }
-              onPress={handleBillingPress}
-              disabled={billingLoading || !bookingId}
-              size="small"
-            />
-          </View>
-        </View>
       </View>
     </ScrollView>
   );

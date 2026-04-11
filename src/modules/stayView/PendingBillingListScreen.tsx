@@ -8,7 +8,13 @@ import Card from "../../shared/components/Card";
 import Loader from "../../shared/components/Loader";
 import AppButton from "../../shared/components/AppButton";
 import { formatDateTime } from "../../shared/utils/date";
-import { bookingApi, Booking } from "../../api/bookingApi";
+import {
+  bookingApi,
+  Booking,
+  getBookingGuestName,
+  getBookingMetaLine,
+  getBookingRoomLabel,
+} from "../../api/bookingApi";
 
 const PendingBillingListScreen: React.FC = () => {
   const { theme } = useThemeStore();
@@ -37,7 +43,7 @@ const PendingBillingListScreen: React.FC = () => {
           if (bills.length === 0) {
             pending.push(booking);
           }
-        } catch (e) {
+        } catch {
           pending.push(booking);
         }
       }
@@ -126,94 +132,115 @@ const PendingBillingListScreen: React.FC = () => {
           paddingHorizontal: 12,
           paddingBottom: 16,
           paddingTop: 4,
+          flexGrow: items.length === 0 ? 1 : 0,
         }}
-        renderItem={({ item }) => (
-          <Card style={{ marginBottom: 10 }} onPress={() => openStayView(item)}>
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 4,
-              }}
-            >
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <Ionicons
-                  name="receipt-outline"
-                  size={18}
-                  color={colors.primary}
-                  style={{ marginRight: 6 }}
-                />
+        renderItem={({ item }) => {
+          const guestName = getBookingGuestName(item);
+          const roomLabel = getBookingRoomLabel(item);
+          const metaLine = getBookingMetaLine(item);
+          const folioNo =
+            item.folio_no || (item.folio_id ? `FOL-${item.folio_id}` : "-");
+
+          return (
+            <Card style={{ marginBottom: 10 }} onPress={() => openStayView(item)}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 6,
+                }}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+                  <Ionicons
+                    name="receipt-outline"
+                    size={18}
+                    color={colors.primary}
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      color: colors.text,
+                      fontSize: 16,
+                      fontWeight: "700",
+                      flex: 1,
+                    }}
+                  >
+                    {guestName}
+                  </Text>
+                </View>
+
                 <Text
                   style={{
-                    color: colors.text,
-                    fontSize: 16,
-                    fontWeight: "700",
+                    color: colors.primary,
+                    fontSize: 12,
+                    fontWeight: "600",
                   }}
                 >
-                  Room #{item.room_id}
+                  {item.status}
                 </Text>
               </View>
+
+              <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                {roomLabel}
+              </Text>
+
+              {!!metaLine && (
+                <Text
+                  style={{
+                    color: colors.textSecondary,
+                    fontSize: 11,
+                    marginTop: 2,
+                  }}
+                >
+                  {metaLine}
+                </Text>
+              )}
 
               <Text
                 style={{
                   color: colors.textSecondary,
-                  fontSize: 12,
+                  fontSize: 11,
+                  marginTop: 4,
                 }}
               >
-                #{item.booking_id}
+                Checkout:{" "}
+                {formatDateTime(
+                  item.actual_check_out_datetime || item.check_out_datetime
+                )}
               </Text>
-            </View>
 
-            <Text style={{ color: colors.textSecondary, fontSize: 11 }}>
-              Guest ID: {item.guest_id}
-            </Text>
+              <Text
+                style={{
+                  color: colors.textSecondary,
+                  fontSize: 11,
+                  marginTop: 2,
+                }}
+              >
+                Folio: {folioNo}
+              </Text>
 
-            <Text
-              style={{
-                color: colors.textSecondary,
-                fontSize: 11,
-                marginTop: 2,
-              }}
-            >
-              Checkout:{" "}
-              {formatDateTime(
-                item.actual_check_out_datetime || item.check_out_datetime
-              )}
-            </Text>
-
-            <Text
-              style={{
-                color: colors.textSecondary,
-                fontSize: 11,
-                marginTop: 2,
-              }}
-            >
-              Status: {item.status}
-            </Text>
-
-            <Text
-              style={{
-                color: colors.textSecondary,
-                fontSize: 11,
-                marginTop: 2,
-              }}
-            >
-              Folio ID: {item.folio_id || 0}
-            </Text>
-
-            <View style={{ marginTop: 8, alignItems: "flex-end" }}>
-              <AppButton
-                title="Open for Billing"
-                size="small"
-                onPress={() => openStayView(item)}
-              />
-            </View>
-          </Card>
-        )}
+              <View style={{ marginTop: 8, alignItems: "flex-end" }}>
+                <AppButton
+                  title="Open for Billing"
+                  size="small"
+                  onPress={() => openStayView(item)}
+                />
+              </View>
+            </Card>
+          );
+        }}
         ListEmptyComponent={
           !loading ? (
-            <View style={{ padding: 20, alignItems: "center" }}>
+            <View
+              style={{
+                flex: 1,
+                padding: 20,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
               <Text style={{ color: colors.textSecondary }}>
                 No checked-out stays pending billing.
               </Text>

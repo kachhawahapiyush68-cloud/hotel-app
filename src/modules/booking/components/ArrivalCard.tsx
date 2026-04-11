@@ -8,7 +8,11 @@ import {
 } from "react-native";
 import Card from "../../../shared/components/Card";
 import { useThemeStore } from "../../../store/themeStore";
-import { Booking } from "../../../api/bookingApi";
+import {
+  Booking,
+  getBookingGuestName,
+  getBookingRoomLabel,
+} from "../../../api/bookingApi";
 import { formatDate } from "../../../shared/utils/date";
 import { RoomPicker } from "./RoomPicker";
 
@@ -26,6 +30,7 @@ const ArrivalCard: React.FC<Props> = ({
   loading = false,
 }) => {
   const { theme } = useThemeStore();
+  const colors = theme.colors;
 
   const [selectedRoomId, setSelectedRoomId] = useState<number | undefined>(
     booking.room_id || undefined
@@ -34,12 +39,8 @@ const ArrivalCard: React.FC<Props> = ({
   const isCheckedIn = booking.status === "CheckedIn";
   const isDisabled = disabled || loading || isCheckedIn;
 
-  const guestName = useMemo(
-    () =>
-      `${booking.first_name ?? ""} ${booking.last_name ?? ""}`.trim() ||
-      `Guest #${booking.guest_id}`,
-    [booking.first_name, booking.last_name, booking.guest_id]
-  );
+  const guestName = useMemo(() => getBookingGuestName(booking), [booking]);
+  const roomLabel = useMemo(() => getBookingRoomLabel(booking), [booking]);
 
   const handleCheckInPress = () => {
     const roomToUse = selectedRoomId || booking.room_id;
@@ -64,13 +65,13 @@ const ArrivalCard: React.FC<Props> = ({
       subtitle={guestName}
     >
       <View style={{ marginTop: 4 }}>
-        <Text style={{ color: theme.colors.textSecondary, fontSize: 12 }}>
-          Room: {booking.room_no || booking.room_id || "-"}
+        <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+          Room: {roomLabel}
         </Text>
 
         <Text
           style={{
-            color: theme.colors.textSecondary,
+            color: colors.textSecondary,
             fontSize: 12,
             marginTop: 4,
           }}
@@ -81,12 +82,24 @@ const ArrivalCard: React.FC<Props> = ({
         {!!booking.reservation_no && (
           <Text
             style={{
-              color: theme.colors.textSecondary,
+              color: colors.textSecondary,
               fontSize: 12,
               marginTop: 4,
             }}
           >
             Reservation: {booking.reservation_no}
+          </Text>
+        )}
+
+        {!!booking.folio_no && (
+          <Text
+            style={{
+              color: colors.textSecondary,
+              fontSize: 12,
+              marginTop: 4,
+            }}
+          >
+            Folio: {booking.folio_no}
           </Text>
         )}
       </View>
@@ -107,9 +120,7 @@ const ArrivalCard: React.FC<Props> = ({
             paddingHorizontal: 14,
             paddingVertical: 8,
             borderRadius: 999,
-            backgroundColor: isDisabled
-              ? theme.colors.border
-              : theme.colors.primary,
+            backgroundColor: isDisabled ? colors.border : colors.primary,
             minWidth: 110,
             alignItems: "center",
             justifyContent: "center",
@@ -118,13 +129,13 @@ const ArrivalCard: React.FC<Props> = ({
           onPress={handleCheckInPress}
         >
           {loading ? (
-            <ActivityIndicator color={theme.colors.onPrimary || "#fff"} />
+            <ActivityIndicator color={colors.onPrimary || "#fff"} />
           ) : (
             <Text
               style={{
                 color: isCheckedIn
-                  ? theme.colors.textSecondary
-                  : theme.colors.onPrimary || "#fff",
+                  ? colors.textSecondary
+                  : colors.onPrimary || "#fff",
                 fontSize: 13,
                 fontWeight: "600",
               }}

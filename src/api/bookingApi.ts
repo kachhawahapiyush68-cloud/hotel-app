@@ -7,6 +7,19 @@ export type BookingStatus =
   | "CheckedOut"
   | "Cancelled";
 
+export type AdvanceStatus =
+  | "NONE"
+  | "RECEIVED"
+  | "ADJUSTED"
+  | "REFUNDED"
+  | "FORFEITED";
+
+export type CancellationRefundMode =
+  | "NONE"
+  | "FULL"
+  | "PARTIAL"
+  | "FORFEIT";
+
 export interface Booking {
   booking_id: number;
   company_id: number;
@@ -31,6 +44,18 @@ export interface Booking {
   room_no?: string | null;
   first_name?: string | null;
   last_name?: string | null;
+
+  advance_amount?: number;
+  advance_payment_type?: string | null;
+  advance_ref_no?: string | null;
+  advance_status?: AdvanceStatus | null;
+  advance_received_at?: string | null;
+  refunded_amount?: number;
+  refund_payment_type?: string | null;
+  refund_ref_no?: string | null;
+  refund_reason?: string | null;
+  refunded_at?: string | null;
+  advance_posted_to_folio?: number;
 }
 
 export interface BookingCreateInput {
@@ -44,6 +69,10 @@ export interface BookingCreateInput {
   num_adult?: number;
   num_child?: number;
   status?: BookingStatus;
+
+  advance_amount?: number;
+  advance_payment_type?: string | null;
+  advance_ref_no?: string | null;
 }
 
 export interface BookingUpdateInput {
@@ -55,6 +84,11 @@ export interface BookingUpdateInput {
   nights?: number;
   num_adult?: number;
   num_child?: number;
+  status?: BookingStatus;
+
+  advance_amount?: number;
+  advance_payment_type?: string | null;
+  advance_ref_no?: string | null;
 }
 
 export interface CheckInResponse {
@@ -72,6 +106,52 @@ export interface BookingBillingSummary {
 export interface BookingBillResponse {
   bill: any;
   items: any[];
+}
+
+/**
+ * Payload to unified cancel endpoint.
+ * All fields are optional; backend enforces what is required per mode.
+ */
+export interface CancelBookingInput {
+  refund_mode?: CancellationRefundMode;
+  refunded_amount?: number;
+  refund_payment_type?: string;
+  refund_ref_no?: string;
+  refund_reason?: string;
+  cancellation_reason?: string;
+}
+
+export function getBookingGuestName(row?: Partial<Booking> | null): string {
+  if (!row) return "Guest";
+  const name = `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim();
+  return name || "Guest";
+}
+
+export function getBookingRoomLabel(row?: Partial<Booking> | null): string {
+  if (!row) return "Unassigned";
+  if (row.room_no) return `Room ${row.room_no}`;
+  if (row.room_id) return `Room #${row.room_id}`;
+  return "Unassigned";
+}
+
+export function getBookingMetaLine(row?: Partial<Booking> | null): string {
+  if (!row) return "";
+
+  const room = getBookingRoomLabel(row);
+  const nights =
+    Number(row.nights || 0) > 0
+      ? `${Number(row.nights)} night${Number(row.nights) > 1 ? "s" : ""}`
+      : null;
+  const adults =
+    Number(row.num_adult || 0) > 0
+      ? `${Number(row.num_adult)} Adult${Number(row.num_adult) > 1 ? "s" : ""}`
+      : null;
+  const children =
+    Number(row.num_child || 0) > 0
+      ? `${Number(row.num_child)} Child${Number(row.num_child) > 1 ? "ren" : ""}`
+      : null;
+
+  return [room, nights, adults, children].filter(Boolean).join(" • ");
 }
 
 function normalizeBooking(row: any): Booking {
@@ -97,6 +177,28 @@ function normalizeBooking(row: any): Booking {
     room_no: row?.room_no ?? null,
     first_name: row?.first_name ?? null,
     last_name: row?.last_name ?? null,
+    reservation_no: row?.reservation_no ?? null,
+    advance_amount:
+      row?.advance_amount === null || row?.advance_amount === undefined
+        ? 0
+        : Number(row.advance_amount),
+    advance_payment_type: row?.advance_payment_type ?? null,
+    advance_ref_no: row?.advance_ref_no ?? null,
+    advance_status: row?.advance_status ?? null,
+    advance_received_at: row?.advance_received_at ?? null,
+    refunded_amount:
+      row?.refunded_amount === null || row?.refunded_amount === undefined
+        ? 0
+        : Number(row.refunded_amount),
+    refund_payment_type: row?.refund_payment_type ?? null,
+    refund_ref_no: row?.refund_ref_no ?? null,
+    refund_reason: row?.refund_reason ?? null,
+    refunded_at: row?.refunded_at ?? null,
+    advance_posted_to_folio:
+      row?.advance_posted_to_folio === null ||
+      row?.advance_posted_to_folio === undefined
+        ? 0
+        : Number(row.advance_posted_to_folio),
   };
 }
 
@@ -134,6 +236,24 @@ export const bookingApi = {
   async remove(id: number): Promise<void> {
     await httpClient.delete(`/bookings/${id}`);
   },
+
+  /**
+   * Unified cancel + refund call.
+   * Pass appropriate refund_mode and fields.
+   */
+  async cancel(
+    id: number,
+    input: CancelBookingInput
+  ): Promise<Booking> {
+    const res = await httpClient.post<Booking>(
+      `/bookings/${id}/cancel`,
+      input
+    );
+    return normalizeBooking(res.data);
+  },
+
+  // Old refundAdvance endpoint REMOVED – use cancel() with appropriate mode.
+  // async refundAdvance(...) { ... }
 
   async checkIn(id: number, room_id: number): Promise<CheckInResponse> {
     const res = await httpClient.post<CheckInResponse>(

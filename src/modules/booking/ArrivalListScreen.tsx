@@ -19,33 +19,22 @@ const ArrivalListScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { setCurrentFromCheckIn } = useBookingStore();
 
-  const [state, setState] = useState<{
-    loadingLocal: boolean;
-    arrivalsLocal: Booking[];
-    checkingInId: number | null;
-  }>({
-    loadingLocal: false,
-    arrivalsLocal: [],
-    checkingInId: null,
-  });
+  const [loadingLocal, setLoadingLocal] = useState(false);
+  const [arrivalsLocal, setArrivalsLocal] = useState<Booking[]>([]);
+  const [checkingInId, setCheckingInId] = useState<number | null>(null);
 
   const loadArrivals = useCallback(async () => {
     try {
-      setState((s) => ({ ...s, loadingLocal: true }));
-
+      setLoadingLocal(true);
       const todayIso = toIsoDate(new Date());
       const arrivals = await bookingApi.arrivals({ date: todayIso });
-
-      setState((s) => ({
-        ...s,
-        loadingLocal: false,
-        arrivalsLocal: Array.isArray(arrivals) ? arrivals : [],
-      }));
+      setArrivalsLocal(Array.isArray(arrivals) ? arrivals : []);
     } catch (e: any) {
-      setState((s) => ({ ...s, loadingLocal: false }));
       const msg =
         e?.response?.data?.message || e?.message || "Failed to load arrivals";
       Alert.alert("Error", msg);
+    } finally {
+      setLoadingLocal(false);
     }
   }, []);
 
@@ -58,10 +47,10 @@ const ArrivalListScreen: React.FC = () => {
   };
 
   const handleCheckIn = async (booking: Booking, roomId: number) => {
-    if (state.checkingInId === booking.booking_id) return;
+    if (checkingInId === booking.booking_id) return;
 
     try {
-      setState((s) => ({ ...s, checkingInId: booking.booking_id }));
+      setCheckingInId(booking.booking_id);
 
       const resp = await bookingApi.checkIn(booking.booking_id, roomId);
 
@@ -75,60 +64,65 @@ const ArrivalListScreen: React.FC = () => {
 
       setCurrentFromCheckIn(updatedBooking, resp);
 
-      setState((s) => ({
-        ...s,
-        checkingInId: null,
-        arrivalsLocal: s.arrivalsLocal.map((item) =>
+      setArrivalsLocal((prev) =>
+        prev.map((item) =>
           item.booking_id === booking.booking_id ? updatedBooking : item
-        ),
-      }));
+        )
+      );
 
       navigation.dispatch(StackActions.replace("StayView"));
     } catch (e: any) {
-      setState((s) => ({ ...s, checkingInId: null }));
       console.log("CheckIn error", e?.response?.data || e);
       const msg =
         e?.response?.data?.message || e?.message || "Failed to check in";
       Alert.alert("Error", msg);
+    } finally {
+      setCheckingInId(null);
     }
   };
 
-  if (state.loadingLocal && state.arrivalsLocal.length === 0) {
+  if (loadingLocal && arrivalsLocal.length === 0) {
     return <Loader />;
   }
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <FlatList
-        data={state.arrivalsLocal}
+        data={arrivalsLocal}
         keyExtractor={(item) => String(item.booking_id)}
         refreshControl={
           <RefreshControl
-            refreshing={state.loadingLocal}
+            refreshing={loadingLocal}
             onRefresh={handleRefresh}
           />
         }
-        contentContainerStyle={{ padding: 12 }}
+        contentContainerStyle={{
+          padding: 12,
+          flexGrow: arrivalsLocal.length === 0 ? 1 : 0,
+        }}
         renderItem={({ item }) => (
           <ArrivalCard
             booking={item}
             onCheckIn={handleCheckIn}
             disabled={
-              item.status === "CheckedIn" ||
-              state.checkingInId === item.booking_id
+              item.status === "CheckedIn" || checkingInId === item.booking_id
             }
-            loading={state.checkingInId === item.booking_id}
+            loading={checkingInId === item.booking_id}
           />
         )}
         ListEmptyComponent={
-          !state.loadingLocal ? (
+          !loadingLocal ? (
             <View
               style={{
-                padding: 20,
+                flex: 1,
+                justifyContent: "center",
                 alignItems: "center",
+                paddingHorizontal: 24,
               }}
             >
-              <Text style={{ color: theme.colors.textSecondary }}>
+              <Text
+                style={{ color: theme.colors.textSecondary, fontSize: 15 }}
+              >
                 No arrivals for today.
               </Text>
             </View>

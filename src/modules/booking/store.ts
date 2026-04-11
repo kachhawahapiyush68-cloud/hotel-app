@@ -5,6 +5,7 @@ import {
   BookingCreateInput,
   BookingUpdateInput,
   CheckInResponse,
+  CancelBookingInput,
 } from "../../api/bookingApi";
 import { useAuthStore } from "../../store/authStore";
 import { normalizeRole } from "../../shared/utils/role";
@@ -27,6 +28,7 @@ type BookingState = {
   fetch: () => Promise<void>;
   create: (input: BookingCreateInput) => Promise<Booking | null>;
   update: (id: number, input: BookingUpdateInput) => Promise<Booking | null>;
+  cancel: (id: number, input: CancelBookingInput) => Promise<Booking | null>;
 
   fetchTodayArrivals: (date?: string) => Promise<void>;
   fetchReservationsInRange: (from: string, to: string) => Promise<void>;
@@ -39,6 +41,10 @@ type BookingState = {
 
   clearCurrent: () => void;
 };
+
+function replaceBooking(list: Booking[], updated: Booking) {
+  return list.map((b) => (b.booking_id === updated.booking_id ? updated : b));
+}
 
 export const useBookingStore = create<BookingState>((set, get) => ({
   items: [],
@@ -114,10 +120,8 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       const updated = await bookingApi.update(id, input);
 
       set((state) => ({
-        items: state.items.map((b) => (b.booking_id === id ? updated : b)),
-        arrivals: state.arrivals.map((b) =>
-          b.booking_id === id ? updated : b
-        ),
+        items: replaceBooking(state.items, updated),
+        arrivals: replaceBooking(state.arrivals, updated),
         currentBooking:
           state.currentBooking?.booking_id === id
             ? { ...state.currentBooking, ...updated }
@@ -131,6 +135,33 @@ export const useBookingStore = create<BookingState>((set, get) => ({
           e?.response?.data?.message ||
           e?.message ||
           "Failed to update booking",
+      });
+      return null;
+    }
+  },
+
+  async cancel(id: number, input: CancelBookingInput) {
+    try {
+      set({ error: null });
+
+      const updated = await bookingApi.cancel(id, input);
+
+      set((state) => ({
+        items: replaceBooking(state.items, updated),
+        arrivals: replaceBooking(state.arrivals, updated),
+        currentBooking:
+          state.currentBooking?.booking_id === id
+            ? { ...state.currentBooking, ...updated }
+            : state.currentBooking,
+      }));
+
+      return updated;
+    } catch (e: any) {
+      set({
+        error:
+          e?.response?.data?.message ||
+          e?.message ||
+          "Failed to cancel booking",
       });
       return null;
     }
@@ -160,7 +191,6 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       set({ loading: true, error: null });
 
       const data = await bookingApi.reservations({ from, to });
-
       set({ items: data, loading: false });
     } catch (e: any) {
       set({

@@ -61,7 +61,7 @@ export type RootStackParamList = {
   TaxGroupList: undefined;
 
   UserList: undefined;
-  UserEdit: { id: number };
+  UserEdit: { id?: number } | undefined;
 
   BookingList: undefined;
   QuickReservation: { bookingId?: number } | undefined;
@@ -128,12 +128,14 @@ const RootNavigator: React.FC = () => {
       text: theme.colors.text,
       border: theme.colors.border,
       primary: theme.colors.primary,
+      notification: baseNavTheme.colors.notification,
     },
   };
 
   return (
     <NavigationContainer theme={navTheme}>
       <Stack.Navigator
+        initialRouteName={user ? "MainTabs" : "AuthStack"}
         screenOptions={{
           headerShown: false,
           animation: "slide_from_right",

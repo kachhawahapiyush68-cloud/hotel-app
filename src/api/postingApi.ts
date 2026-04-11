@@ -10,6 +10,7 @@ export interface RoomPosting {
   charge_type: string;
   amount: number;
   tax_amount: number;
+  payment_type?: string | null;
   is_auto_posted: number;
   is_deleted: number;
   created_at: string;
@@ -31,11 +32,13 @@ export interface CreateExtraChargePayload {
   tax_amount?: number;
   posting_date?: string;
   company_id?: number;
+  payment_type?: string; // CASH / CARD / UPI / ADVANCE / REFUND etc.
 }
 
 export interface UpdatePostingPayload {
   amount?: number;
   tax_amount?: number;
+  payment_type?: string | null;
 }
 
 function normalizePosting(row: any): RoomPosting {
@@ -50,6 +53,7 @@ function normalizePosting(row: any): RoomPosting {
     tax_amount: Number(row?.tax_amount || 0),
     is_auto_posted: Number(row?.is_auto_posted || 0),
     is_deleted: Number(row?.is_deleted || 0),
+    payment_type: row?.payment_type ?? null,
   };
 }
 
@@ -62,7 +66,10 @@ export const postingApi = {
   async createExtraCharge(
     payload: CreateExtraChargePayload
   ): Promise<RoomPosting> {
-    const res = await httpClient.post<RoomPosting>("/postings/extra-charge", payload);
+    const res = await httpClient.post<RoomPosting>(
+      "/postings/extra-charge",
+      payload
+    );
     return normalizePosting(res.data);
   },
 
@@ -75,7 +82,10 @@ export const postingApi = {
     postingId: number,
     payload: UpdatePostingPayload
   ): Promise<RoomPosting> {
-    const res = await httpClient.patch<RoomPosting>(`/postings/${postingId}`, payload);
+    const res = await httpClient.patch<RoomPosting>(
+      `/postings/${postingId}`,
+      payload
+    );
     return normalizePosting(res.data);
   },
 
