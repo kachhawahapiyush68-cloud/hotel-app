@@ -1,158 +1,326 @@
-import React, { useMemo, useState } from "react";
-import { Alert, StyleSheet, Switch, Text, View } from "react-native";
-import AppInput from "../../../shared/components/AppInput";
-import AppButton from "../../../shared/components/AppButton";
-import SelectModal from "../../../shared/components/SelectModal";
+// ============================================================
+// src/modules/masters/components/LedgerForm.tsx
+// ============================================================
+//
+// Modal form for creating or editing a ledger.
+// Used by LedgerListScreen.
+//
+// Create: POST /api/ledgers → { ledger_name, ledger_type, opening_balance, dr_cr_flag, is_active }
+// Edit:   PUT  /api/ledgers/:id → same fields
+//
+// Rules:
+//   - System ledgers: name + type are read-only (only is_active can change)
+//   - dr_cr_flag defaults based on ledger_type:
+//       CASH/BANK/RECEIVABLE/EXPENSE → Dr
+//       LIABILITY/REVENUE            → Cr
+// ============================================================
+
+import React, { useCallback, useEffect, useState } from "react";
 import {
-  CreateLedgerPayload,
-  Ledger,
-} from "../../../api/types";
+  Modal,
+  View,
+  ScrollView,
+  StyleSheet,
+  Text,
+  Switch,
+  Alert,
+} from "react-native";
+import { Ledger, LedgerType, DrCrFlag, CreateLedgerPayload, UpdateLedgerPayload } from "../../../api/types";
+import { createLedger, updateLedger } from "../api";
+import AppButton from "../../../shared/components/AppButton";
+import AppInput  from "../../../shared/components/AppInput";
+import SelectModal, { SelectItem } from "../../../shared/components/SelectModal";
+import { useThemeStore } from "../../../store/themeStore";
 
-type Props = {
-  initialValues?: Ledger;
-  loading?: boolean;
-  onSubmit: (payload: CreateLedgerPayload) => Promise<void>;
-};
+// ── Options ───────────────────────────────────────────────────
 
-const LEDGER_TYPES = [
-  "ASSET",
-  "LIABILITY",
-  "INCOME",
-  "EXPENSE",
-  "BANK",
-  "CASH",
-  "PARTY",
+const TYPE_OPTIONS: SelectItem[] = [
+  { label: "Cash",        value: "CASH"       },
+  { label: "Bank",        value: "BANK"       },
+  { label: "Receivable",  value: "RECEIVABLE" },
+  { label: "Liability",   value: "LIABILITY"  },
+  { label: "Revenue",     value: "REVENUE"    },
+  { label: "Expense",     value: "EXPENSE"    },
 ];
 
-export default function LedgerForm({
-  initialValues,
-  loading,
-  onSubmit,
-}: Props) {
-  const [ledgerName, setLedgerName] = useState(
-    initialValues?.ledger_name ?? ""
-  );
-  const [ledgerType, setLedgerType] = useState(
-    initialValues?.ledger_type ?? "CASH"
-  );
-  const [openingBalance, setOpeningBalance] = useState(
-    String(initialValues?.opening_balance ?? 0)
-  );
-  const [drCrFlag, setDrCrFlag] = useState<"Dr" | "Cr">(
-    initialValues?.dr_cr_flag ?? "Dr"
-  );
-  const [isActive, setIsActive] = useState(
-    (initialValues?.is_active ?? 1) === 1
-  );
-  const [typeModalOpen, setTypeModalOpen] = useState(false);
+const DRCR_OPTIONS: SelectItem[] = [
+  { label: "Debit (Dr) — Asset / Expense",    value: "Dr" },
+  { label: "Credit (Cr) — Income / Liability",value: "Cr" },
+];
 
-  const canSubmit = useMemo(
-    () => ledgerName.trim().length > 0,
-    [ledgerName]
-  );
-
-  const handleSubmit = async () => {
-    if (!ledgerName.trim()) {
-      Alert.alert("Validation", "Ledger name is required");
-      return;
-    }
-
-    const ob = Number(openingBalance || 0);
-    if (Number.isNaN(ob) || ob < 0) {
-      Alert.alert(
-        "Validation",
-        "Opening balance must be a number ≥ 0"
-      );
-      return;
-    }
-
-    await onSubmit({
-      ledger_name: ledgerName.trim(),
-      ledger_type: ledgerType,
-      opening_balance: ob,
-      dr_cr_flag: drCrFlag,
-      is_system_ledger: initialValues?.is_system_ledger ?? 0,
-      is_active: isActive ? 1 : 0,
-    });
-  };
-
-  return (
-    <View style={styles.container}>
-      <AppInput
-        label="Ledger Name"
-        value={ledgerName}
-        onChangeText={setLedgerName}
-      />
-
-      <Text style={styles.label}>Ledger Type</Text>
-      <AppButton
-        title={ledgerType}
-        onPress={() => setTypeModalOpen(true)}
-        variant="secondary"
-      />
-
-      <AppInput
-        label="Opening Balance"
-        keyboardType="numeric"
-        value={openingBalance}
-        onChangeText={setOpeningBalance}
-      />
-
-      <Text style={styles.label}>Dr / Cr</Text>
-      <View style={styles.row}>
-        <AppButton
-          title="Dr"
-          variant={drCrFlag === "Dr" ? "primary" : "secondary"}
-          onPress={() => setDrCrFlag("Dr")}
-        />
-        <AppButton
-          title="Cr"
-          variant={drCrFlag === "Cr" ? "primary" : "secondary"}
-          onPress={() => setDrCrFlag("Cr")}
-        />
-      </View>
-
-      <View style={styles.switchRow}>
-        <Text style={styles.label}>Active</Text>
-        <Switch value={isActive} onValueChange={setIsActive} />
-      </View>
-
-      <AppButton
-        title={loading ? "Saving..." : "Save Ledger"}
-        onPress={handleSubmit}
-        disabled={!canSubmit || !!loading}
-      />
-
-      <SelectModal
-        visible={typeModalOpen}
-        title="Select Ledger Type"
-        options={LEDGER_TYPES.map((t) => ({ label: t, value: t }))}
-        selectedValue={ledgerType}
-        onClose={() => setTypeModalOpen(false)}
-        onSelect={(value) => {
-          setLedgerType(String(value));
-          setTypeModalOpen(false);
-        }}
-      />
-    </View>
-  );
+// Default dr_cr_flag based on type
+function defaultDrCr(type: LedgerType): DrCrFlag {
+  return type === "LIABILITY" || type === "REVENUE" ? "Cr" : "Dr";
 }
 
+const TYPE_LABEL: Record<LedgerType, string> = {
+  CASH:       "Cash",
+  BANK:       "Bank",
+  RECEIVABLE: "Receivable",
+  LIABILITY:  "Liability",
+  REVENUE:    "Revenue",
+  EXPENSE:    "Expense",
+};
+
+// ── Props ─────────────────────────────────────────────────────
+
+interface Props {
+  visible: boolean;
+  ledger:  Ledger | null;   // null → create mode
+  onSave:  () => void;
+  onClose: () => void;
+}
+
+const LedgerForm: React.FC<Props> = ({ visible, ledger, onSave, onClose }) => {
+  const { theme } = useThemeStore();
+  const colors    = theme.colors;
+  const isEdit    = !!ledger;
+  const isSystem  = !!ledger?.is_system_ledger;
+
+  // ── Form state ────────────────────────────────────────────
+  const [name,       setName]       = useState("");
+  const [type,       setType]       = useState<LedgerType>("CASH");
+  const [drCr,       setDrCr]       = useState<DrCrFlag>("Dr");
+  const [opening,    setOpening]    = useState("0");
+  const [isActive,   setIsActive]   = useState(true);
+  const [saving,     setSaving]     = useState(false);
+
+  // Modals for pickers
+  const [typeModal,  setTypeModal]  = useState(false);
+  const [drCrModal,  setDrCrModal]  = useState(false);
+
+  // ── Populate form when editing ────────────────────────────
+  useEffect(() => {
+    if (visible) {
+      if (ledger) {
+        setName(ledger.ledger_name);
+        setType(ledger.ledger_type);
+        setDrCr(ledger.dr_cr_flag);
+        setOpening(String(ledger.opening_balance ?? 0));
+        setIsActive(ledger.is_active === 1);
+      } else {
+        setName("");
+        setType("CASH");
+        setDrCr("Dr");
+        setOpening("0");
+        setIsActive(true);
+      }
+    }
+  }, [visible, ledger]);
+
+  // Auto-set dr_cr when type changes (only in create mode)
+  const onTypeSelect = useCallback((item: SelectItem) => {
+    const t = item.value as LedgerType;
+    setType(t);
+    setDrCr(defaultDrCr(t));
+    setTypeModal(false);
+  }, []);
+
+  // ── Save ──────────────────────────────────────────────────
+  const onSavePress = async () => {
+    if (!name.trim()) {
+      Alert.alert("Validation", "Ledger name is required.");
+      return;
+    }
+
+    const openingNum = parseFloat(opening) || 0;
+    if (isNaN(openingNum)) {
+      Alert.alert("Validation", "Opening balance must be a number.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      if (isEdit && ledger) {
+        const payload: UpdateLedgerPayload = {
+          ledger_name:     name.trim(),
+          ledger_type:     isSystem ? ledger.ledger_type : type,
+          opening_balance: openingNum,
+          dr_cr_flag:      isSystem ? ledger.dr_cr_flag : drCr,
+          is_active:       isActive ? 1 : 0,
+        };
+        await updateLedger(ledger.ledger_id, payload);
+      } else {
+        const payload: CreateLedgerPayload = {
+          ledger_name:     name.trim(),
+          ledger_type:     type,
+          opening_balance: openingNum,
+          dr_cr_flag:      drCr,
+          is_active:       isActive ? 1 : 0,
+        };
+        await createLedger(payload);
+      }
+
+      onSave();
+    } catch (e: any) {
+      Alert.alert("Error", e?.response?.data?.message || e?.message || "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── Render ────────────────────────────────────────────────
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        {/* Header */}
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
+          <Text style={[styles.title, { color: colors.text }]}>
+            {isEdit ? "Edit Ledger" : "Add Ledger"}
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+            {isSystem ? "System ledger — type is fixed" : ""}
+          </Text>
+        </View>
+
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={{ paddingBottom: 40 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Ledger Name */}
+          <AppInput
+            label="Ledger Name *"
+            value={name}
+            onChangeText={setName}
+            placeholder="e.g. Cash In Hand"
+            editable={!isSystem}
+          />
+
+          {/* Ledger Type */}
+          <AppInput
+            label="Ledger Type *"
+            value={TYPE_LABEL[type] ?? type}
+            editable={false}
+            onPress={isSystem ? undefined : () => setTypeModal(true)}
+          />
+
+          {/* Dr / Cr Flag */}
+          <AppInput
+            label="Nature (Dr/Cr)"
+            value={drCr === "Dr" ? "Debit (Dr) — Asset / Expense" : "Credit (Cr) — Income / Liability"}
+            editable={false}
+            onPress={isSystem ? undefined : () => setDrCrModal(true)}
+          />
+
+          {/* Opening Balance */}
+          <AppInput
+            label="Opening Balance"
+            value={opening}
+            onChangeText={setOpening}
+            keyboardType="decimal-pad"
+            placeholder="0.00"
+          />
+
+          {/* Is Active toggle */}
+          <View style={[styles.toggleRow, { borderColor: colors.border }]}>
+            <Text style={[styles.toggleLabel, { color: colors.text }]}>Active</Text>
+            <Switch
+              value={isActive}
+              onValueChange={setIsActive}
+              trackColor={{ true: colors.primary, false: colors.border }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+
+          {/* System ledger notice */}
+          {isSystem && (
+            <View style={[styles.notice, { backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}40` }]}>
+              <Text style={[styles.noticeText, { color: colors.primary }]}>
+                System ledgers are auto-used for bill payments and refunds. Name and type cannot be changed.
+              </Text>
+            </View>
+          )}
+
+          {/* Buttons */}
+          <AppButton
+            title={saving ? "Saving..." : isEdit ? "Update Ledger" : "Create Ledger"}
+            onPress={onSavePress}
+            disabled={saving}
+            style={{ marginTop: 16 }}
+          />
+          <AppButton
+            title="Cancel"
+            variant="outline"
+            onPress={onClose}
+            style={{ marginTop: 10 }}
+          />
+        </ScrollView>
+      </View>
+
+      {/* Type picker */}
+      <SelectModal
+        visible={typeModal}
+        title="Select Ledger Type"
+        data={TYPE_OPTIONS}
+        onSelect={onTypeSelect}
+        onClose={() => setTypeModal(false)}
+      />
+
+      {/* Dr/Cr picker */}
+      <SelectModal
+        visible={drCrModal}
+        title="Select Nature (Dr / Cr)"
+        data={DRCR_OPTIONS}
+        onSelect={(item) => {
+          setDrCr(item.value as DrCrFlag);
+          setDrCrModal(false);
+        }}
+        onClose={() => setDrCrModal(false)}
+      />
+    </Modal>
+  );
+};
+
 const styles = StyleSheet.create({
-  container: {
-    gap: 12,
+  container: { flex: 1 },
+  header: {
+    padding: 20,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
+  title: {
+    fontSize: 20,
+    fontWeight: "700",
   },
-  row: {
-    flexDirection: "row",
-    gap: 10,
+  subtitle: {
+    fontSize: 13,
+    marginTop: 3,
   },
-  switchRow: {
+  scroll: {
+    flex: 1,
+    padding: 16,
+  },
+  toggleRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+  },
+  toggleLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  notice: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  noticeText: {
+    fontSize: 13,
+    lineHeight: 20,
   },
 });
+
+export default LedgerForm;

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import AppInput from "../../../shared/components/AppInput";
 import AppButton from "../../../shared/components/AppButton";
@@ -16,6 +16,22 @@ type Props = {
   disabled?: boolean;
 };
 
+const sanitizeDecimalInput = (text: string) => {
+  const cleaned = text.replace(/[^0-9.]/g, "");
+  const firstDotIndex = cleaned.indexOf(".");
+
+  if (firstDotIndex === -1) return cleaned;
+
+  const beforeDot = cleaned.slice(0, firstDotIndex + 1);
+  const afterDot = cleaned.slice(firstDotIndex + 1).replace(/\./g, "");
+  return `${beforeDot}${afterDot}`;
+};
+
+const toNumberOrZero = (text: string) => {
+  const n = Number(text);
+  return Number.isFinite(n) ? n : 0;
+};
+
 const KotItemRow: React.FC<Props> = ({
   index,
   value,
@@ -23,23 +39,77 @@ const KotItemRow: React.FC<Props> = ({
   onRemove,
   onSelectProduct,
   productName,
-  disabled,
+  disabled = false,
 }) => {
   const { theme } = useThemeStore();
-  const [qtyError, setQtyError] = useState<string>("");
-  const [rateError, setRateError] = useState<string>("");
 
-  const amount = useMemo(
-    () => (value.qty || 0) * (value.rate_at_time != null ? value.rate_at_time : 0),
-    [value.qty, value.rate_at_time]
+  const [qtyError, setQtyError] = useState("");
+  const [rateError, setRateError] = useState("");
+
+  const [qtyText, setQtyText] = useState(
+    value.qty !== undefined && value.qty !== null ? String(value.qty) : ""
   );
+  const [rateText, setRateText] = useState(
+    value.rate_at_time !== undefined && value.rate_at_time !== null
+      ? String(value.rate_at_time)
+      : ""
+  );
+
+  useEffect(() => {
+    setQtyText(
+      value.qty !== undefined && value.qty !== null ? String(value.qty) : ""
+    );
+  }, [value.qty]);
+
+  useEffect(() => {
+    setRateText(
+      value.rate_at_time !== undefined && value.rate_at_time !== null
+        ? String(value.rate_at_time)
+        : ""
+    );
+  }, [value.rate_at_time]);
+
+  const amount = useMemo(() => {
+    const qty = Number(value.qty) || 0;
+    const rate =
+      value.rate_at_time != null ? Number(value.rate_at_time) || 0 : 0;
+    return qty * rate;
+  }, [value.qty, value.rate_at_time]);
 
   useEffect(() => {
     const q = Number(value.qty || 0);
     const r = Number(value.rate_at_time ?? 0);
-    setQtyError(q <= 0 ? "Qty must be > 0" : "");
+
+    setQtyError(q <= 0 ? "Qty must be greater than 0" : "");
     setRateError(r < 0 ? "Rate cannot be negative" : "");
   }, [value.qty, value.rate_at_time]);
+
+  const handleQtyChange = (text: string) => {
+    const cleaned = sanitizeDecimalInput(text);
+    setQtyText(cleaned);
+
+    onChange({
+      ...value,
+      qty: cleaned === "" ? 0 : toNumberOrZero(cleaned),
+    });
+  };
+
+  const handleRateChange = (text: string) => {
+    const cleaned = sanitizeDecimalInput(text);
+    setRateText(cleaned);
+
+    onChange({
+      ...value,
+      rate_at_time: cleaned === "" ? 0 : toNumberOrZero(cleaned),
+    });
+  };
+
+  const handleRemarksChange = (text: string) => {
+    onChange({
+      ...value,
+      remarks: text,
+    });
+  };
 
   return (
     <View
@@ -49,11 +119,12 @@ const KotItemRow: React.FC<Props> = ({
           borderColor: theme.colors.border,
           backgroundColor: theme.colors.surface,
           shadowColor: theme.colors.text,
+          opacity: disabled ? 0.8 : 1,
         },
       ]}
     >
       <View style={styles.headerRow}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={[styles.indexText, { color: theme.colors.text }]}>
             Item #{index + 1}
           </Text>
@@ -86,18 +157,14 @@ const KotItemRow: React.FC<Props> = ({
         <View style={styles.inlineCol}>
           <AppInput
             label="Qty"
-            keyboardType="numeric"
-            value={value.qty ? String(value.qty) : ""}
+            keyboardType="decimal-pad"
+            value={qtyText}
             editable={!disabled}
-            onChangeText={(text) =>
-              onChange({
-                ...value,
-                qty: Number(text) || 0,
-              })
-            }
+            onChangeText={handleQtyChange}
+            placeholder="0"
           />
           {qtyError ? (
-            <Text style={{ color: theme.colors.error, fontSize: 11 }}>
+            <Text style={[styles.errorText, { color: theme.colors.error }]}>
               {qtyError}
             </Text>
           ) : null}
@@ -106,20 +173,14 @@ const KotItemRow: React.FC<Props> = ({
         <View style={styles.inlineCol}>
           <AppInput
             label="Rate"
-            keyboardType="numeric"
-            value={
-              value.rate_at_time != null ? String(value.rate_at_time) : ""
-            }
+            keyboardType="decimal-pad"
+            value={rateText}
             editable={!disabled}
-            onChangeText={(text) =>
-              onChange({
-                ...value,
-                rate_at_time: Number(text) || 0,
-              })
-            }
+            onChangeText={handleRateChange}
+            placeholder="0"
           />
           {rateError ? (
-            <Text style={{ color: theme.colors.error, fontSize: 11 }}>
+            <Text style={[styles.errorText, { color: theme.colors.error }]}>
               {rateError}
             </Text>
           ) : null}
@@ -149,12 +210,7 @@ const KotItemRow: React.FC<Props> = ({
         label="Notes"
         value={value.remarks || ""}
         editable={!disabled}
-        onChangeText={(text) =>
-          onChange({
-            ...value,
-            remarks: text,
-          })
-        }
+        onChangeText={handleRemarksChange}
         multiline
         placeholder="Optional note"
       />
@@ -178,6 +234,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "flex-start",
     marginBottom: 8,
+    gap: 12,
   },
   indexText: {
     fontSize: 15,
@@ -189,26 +246,29 @@ const styles = StyleSheet.create({
   },
   inlineRow: {
     flexDirection: "row",
-    marginTop: 4,
+    gap: 10,
   },
   inlineCol: {
     flex: 1,
-    marginRight: 8,
   },
   amountCard: {
     borderWidth: 1,
     borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 10,
+    padding: 12,
+    marginTop: 8,
+    marginBottom: 8,
   },
   amountLabel: {
     fontSize: 12,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   amountValue: {
     fontSize: 18,
     fontWeight: "700",
+  },
+  errorText: {
+    fontSize: 11,
+    marginTop: 4,
   },
 });
 

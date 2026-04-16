@@ -22,7 +22,6 @@ const AddChargeScreen: React.FC = () => {
   const [chargeType, setChargeType] = useState("EXTRA_CHARGE");
   const [amount, setAmount] = useState("");
   const [taxAmount, setTaxAmount] = useState("0");
-  const [paymentType, setPaymentType] = useState("CASH"); // CASH / CARD / UPI / ADVANCE / REFUND
   const [loading, setLoading] = useState(false);
 
   const amt = Number(amount) || 0;
@@ -76,11 +75,6 @@ const AddChargeScreen: React.FC = () => {
       return;
     }
 
-    if (!paymentType.trim()) {
-      Alert.alert("Validation", "Payment mode is required.");
-      return;
-    }
-
     try {
       setLoading(true);
 
@@ -89,7 +83,7 @@ const AddChargeScreen: React.FC = () => {
         charge_type: chargeType.trim().toUpperCase(),
         amount: amt,
         tax_amount: tax > 0 ? tax : 0,
-        payment_type: paymentType.trim().toUpperCase(),
+        // posting_date and company_id can still be added here if needed
       });
 
       Alert.alert("Success", "Charge posted successfully.", [
@@ -184,15 +178,6 @@ const AddChargeScreen: React.FC = () => {
         value={chargeType}
         onChangeText={setChargeType}
         placeholder="EXTRA_CHARGE / LAUNDRY / MINIBAR"
-        autoCapitalize="characters"
-        containerStyle={{ marginBottom: 12 }}
-      />
-
-      <AppInput
-        label="Payment Mode"
-        value={paymentType}
-        onChangeText={setPaymentType}
-        placeholder="CASH / CARD / UPI / ADVANCE / REFUND"
         autoCapitalize="characters"
         containerStyle={{ marginBottom: 12 }}
       />

@@ -1,17 +1,35 @@
+// ============================================================
+// src/modules/bill/api.ts
+// ============================================================
+
 import { billApi } from "../../api/billApi";
 import {
   Bill,
   BillDetailResponse,
+  BillListParams,
   CreateBillPayload,
   CreateBillFromKotPayload,
   CreateBillFromBookingPayload,
-  BillPaymentStatus,
+  UpdateBillPayload,
   MarkPaidPayload,
   MarkPaidResponse,
+  MarkRefundPayload,
+  MarkRefundResponse,
 } from "./types";
 
-export async function fetchBillList(billtype?: string): Promise<Bill[]> {
-  return billApi.getBills(billtype ? { billtype } : undefined);
+export async function fetchBillList(
+  billtype?: string,
+  companyid?: number
+): Promise<Bill[]> {
+  const params: BillListParams | undefined =
+    billtype || companyid
+      ? {
+          ...(billtype ? { billtype } : {}),
+          ...(companyid ? { companyid } : {}),
+        }
+      : undefined;
+
+  return billApi.getBills(params);
 }
 
 export async function fetchBillDetail(id: number): Promise<BillDetailResponse> {
@@ -34,9 +52,16 @@ export async function createBillFromBooking(
   return billApi.createBillFromBooking(payload);
 }
 
+export async function updateBill(
+  id: number,
+  payload: UpdateBillPayload
+): Promise<BillDetailResponse> {
+  return billApi.updateBill(id, payload);
+}
+
 export async function updateBillPaymentStatus(
   id: number,
-  paymentStatus: BillPaymentStatus
+  paymentStatus: string
 ): Promise<Bill> {
   return billApi.updatePaymentStatus(id, paymentStatus);
 }
@@ -46,6 +71,13 @@ export async function markBillPaid(
   payload: MarkPaidPayload
 ): Promise<MarkPaidResponse> {
   return billApi.markPaid(id, payload);
+}
+
+export async function markBillRefund(
+  id: number,
+  payload: MarkRefundPayload
+): Promise<MarkRefundResponse> {
+  return billApi.markRefund(id, payload);
 }
 
 export async function deleteBill(id: number): Promise<void> {

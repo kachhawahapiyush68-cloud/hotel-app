@@ -1,4 +1,3 @@
-// src/modules/kot/KotListScreen.tsx
 import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
@@ -48,10 +47,8 @@ const KotListScreen: React.FC = () => {
   const [data, setData] = useState<Kot[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [statusFilter, setStatusFilter] =
-    useState<StatusFilter>("Open");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("Open");
 
-  // Initialize from deep link param
   useEffect(() => {
     if (route.params?.status) {
       setStatusFilter(route.params.status as StatusFilter);
@@ -61,10 +58,11 @@ const KotListScreen: React.FC = () => {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const statusParam =
-        statusFilter === "All" ? undefined : statusFilter;
+      const statusParam = statusFilter === "All" ? undefined : statusFilter;
       const res = await fetchKotList(statusParam);
       setData(res);
+    } catch (e) {
+      setData([]);
     } finally {
       setLoading(false);
     }
@@ -85,6 +83,21 @@ const KotListScreen: React.FC = () => {
     }
   }, [isFocused, load]);
 
+  useEffect(() => {
+    if (isFocused && route.params?.refreshOnFocus) {
+      load();
+      navigation.setParams?.({ refreshOnFocus: false });
+    }
+  }, [isFocused, route.params?.refreshOnFocus, load, navigation]);
+
+  const openKot = (item: Kot) => {
+    if (!item.kot_id) return;
+    navigation.push("KotEntry", {
+      kotId: item.kot_id,
+      refreshOnFocus: false,
+    });
+  };
+
   const renderItem = ({ item }: { item: Kot }) => {
     const statusColor = getStatusColor(item.status, theme);
     const guestName =
@@ -103,18 +116,15 @@ const KotListScreen: React.FC = () => {
             shadowColor: theme.colors.text,
           },
         ]}
-        onPress={() =>
-          navigation.navigate("KotEntry", { kotId: item.kot_id })
-        }
+        onPress={() => openKot(item)}
       >
         <View style={styles.topRow}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.kotNo, { color: theme.colors.text }]}>
               {item.kot_no || `KOT #${item.kot_id}`}
             </Text>
-            <Text
-              style={[styles.kotDate, { color: theme.colors.textSecondary }]}
-            >
+
+            <Text style={[styles.kotDate, { color: theme.colors.textSecondary }]}>
               {item.kot_datetime
                 ? formatDateTime(item.kot_datetime)
                 : "No datetime"}
@@ -134,6 +144,17 @@ const KotListScreen: React.FC = () => {
         </View>
 
         <View style={styles.metaWrap}>
+          {item.service_type ? (
+            <Text
+              style={[
+                styles.metaText,
+                { color: theme.colors.textSecondary },
+              ]}
+            >
+              Type: {item.service_type}
+            </Text>
+          ) : null}
+
           {item.room_no ? (
             <Text
               style={[
@@ -202,6 +223,12 @@ const KotListScreen: React.FC = () => {
             Guest: {guestName}
           </Text>
         ) : null}
+
+        {item.service_type === "ROOM" ? (
+          <Text style={[styles.noteText, { color: theme.colors.textSecondary }]}>
+            Room-service KOT goes to folio/posting flow.
+          </Text>
+        ) : null}
       </TouchableOpacity>
     );
   };
@@ -219,14 +246,12 @@ const KotListScreen: React.FC = () => {
     >
       <SectionTitle
         title="Kitchen Orders"
-        subtitle={`${data.length} order${
-          data.length === 1 ? "" : "s"
-        }`}
+        subtitle={`${data.length} order${data.length === 1 ? "" : "s"}`}
         rightContent={
           <AppButton
             title="New KOT"
             size="small"
-            onPress={() => navigation.navigate("KotEntry")}
+            onPress={() => navigation.push("KotEntry", {})}
           />
         }
       />
@@ -341,6 +366,10 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontSize: 13,
     fontWeight: "600",
+  },
+  noteText: {
+    marginTop: 6,
+    fontSize: 12,
   },
   emptyWrap: {
     borderWidth: 1,

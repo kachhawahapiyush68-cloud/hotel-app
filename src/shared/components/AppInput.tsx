@@ -1,20 +1,20 @@
-// src/shared/components/AppInput.tsx
-import React from 'react';
+import React from "react";
 import {
   TextInput,
   StyleSheet,
   TextInputProps,
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
   ViewStyle,
-} from 'react-native';
-import { useThemeStore } from '../../store/themeStore';
+  StyleProp,
+} from "react-native";
+import { useThemeStore } from "../../store/themeStore";
 
 export type AppInputProps = TextInputProps & {
   label?: string;
   error?: string;
-  containerStyle?: ViewStyle | ViewStyle[];
+  containerStyle?: StyleProp<ViewStyle>;
   onPress?: () => void;
 };
 
@@ -24,25 +24,36 @@ const AppInput: React.FC<AppInputProps> = ({
   containerStyle,
   editable = true,
   onPress,
+  multiline,
+  style,
   ...rest
 }) => {
   const { theme } = useThemeStore();
-  const borderColor = error ? theme.colors.danger : theme.colors.border;
+
+  const errorColor = theme.colors.error || theme.colors.danger || "#D64545";
+  const borderColor = error ? errorColor : theme.colors.border;
+  const isPickerMode = typeof onPress === "function";
 
   const inputElement = (
-    <TextInput
-      placeholderTextColor={theme.colors.textSecondary}
-      style={[
-        styles.input,
-        {
-          color: theme.colors.text,
-          borderColor,
-          backgroundColor: theme.colors.surface,
-        },
-      ]}
-      editable={editable && !onPress}
-      {...rest}
-    />
+    <View pointerEvents={isPickerMode ? "none" : "auto"}>
+      <TextInput
+        placeholderTextColor={theme.colors.textSecondary}
+        style={[
+          styles.input,
+          multiline ? styles.multilineInput : null,
+          {
+            color: theme.colors.text,
+            borderColor,
+            backgroundColor: theme.colors.surface,
+          },
+          style,
+        ]}
+        editable={isPickerMode ? false : editable}
+        multiline={multiline}
+        textAlignVertical={multiline ? "top" : "center"}
+        {...rest}
+      />
+    </View>
   );
 
   return (
@@ -53,18 +64,16 @@ const AppInput: React.FC<AppInputProps> = ({
         </Text>
       ) : null}
 
-      {onPress ? (
-        <TouchableOpacity activeOpacity={0.7} onPress={onPress}>
+      {isPickerMode ? (
+        <Pressable onPress={onPress} style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}>
           {inputElement}
-        </TouchableOpacity>
+        </Pressable>
       ) : (
         inputElement
       )}
 
       {error ? (
-        <Text style={[styles.errorText, { color: theme.colors.danger }]}>
-          {error}
-        </Text>
+        <Text style={[styles.errorText, { color: errorColor }]}>{error}</Text>
       ) : null}
     </View>
   );
@@ -72,16 +81,22 @@ const AppInput: React.FC<AppInputProps> = ({
 
 const styles = StyleSheet.create({
   label: {
-    marginBottom: 4,
+    marginBottom: 6,
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   input: {
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
     marginBottom: 4,
+    minHeight: 46,
+    fontSize: 14,
+  },
+  multilineInput: {
+    minHeight: 96,
+    paddingTop: 12,
   },
   errorText: {
     fontSize: 11,

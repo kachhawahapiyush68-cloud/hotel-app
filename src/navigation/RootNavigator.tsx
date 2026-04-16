@@ -45,6 +45,8 @@ import VoucherListScreen from "../modules/voucher/VoucherListScreen";
 import VoucherEntryScreen from "../modules/voucher/VoucherEntryScreen";
 import VoucherDetailScreen from "../modules/voucher/VoucherDetailScreen";
 
+import { DailyRegisterScreen } from "../modules/dailyRegister/DailyRegisterScreen";
+
 export type RootStackParamList = {
   AuthStack: undefined;
   MainTabs: undefined;
@@ -73,8 +75,9 @@ export type RootStackParamList = {
 
   KOTList:
     | {
-        status?: "Open" | "Billed" | "Cancelled";
+        status?: "All" | "Open" | "Billed" | "Cancelled";
         service_type?: "TABLE" | "ROOM";
+        refreshOnFocus?: boolean;
       }
     | undefined;
 
@@ -85,6 +88,7 @@ export type RootStackParamList = {
         room_id?: number;
         table_no?: string;
         service_type?: "TABLE" | "ROOM";
+        refreshOnFocus?: boolean;
       }
     | undefined;
 
@@ -92,10 +96,12 @@ export type RootStackParamList = {
     | {
         bill_type?: "Restaurant" | "Room";
         payment_status?: "Unpaid" | "PartiallyPaid" | "Paid";
+        refreshOnFocus?: boolean;
       }
     | undefined;
 
   BillDetail: { billId: number };
+
   BillFromKot:
     | {
         kotIds?: number[];
@@ -103,12 +109,15 @@ export type RootStackParamList = {
         guestId?: number;
         folioId?: number;
         roomId?: number;
+        refreshOnFocus?: boolean;
       }
     | undefined;
 
   VoucherList: undefined;
   VoucherEntry: undefined;
   VoucherDetail: { voucherId: number };
+
+  DailyRegister: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -135,6 +144,7 @@ const RootNavigator: React.FC = () => {
   return (
     <NavigationContainer theme={navTheme}>
       <Stack.Navigator
+        key={user ? "app" : "auth"}
         initialRouteName={user ? "MainTabs" : "AuthStack"}
         screenOptions={{
           headerShown: false,
@@ -177,8 +187,16 @@ const RootNavigator: React.FC = () => {
               component={PendingBillingListScreen}
             />
 
-            <Stack.Screen name="KOTList" component={KotListScreen} />
-            <Stack.Screen name="KotEntry" component={KotEntryScreen} />
+            <Stack.Screen
+              name="KOTList"
+              component={KotListScreen}
+              options={{ gestureEnabled: true }}
+            />
+            <Stack.Screen
+              name="KotEntry"
+              component={KotEntryScreen}
+              options={{ gestureEnabled: true }}
+            />
 
             <Stack.Screen name="BillList" component={BillListScreen} />
             <Stack.Screen name="BillDetail" component={BillDetailScreen} />
@@ -189,6 +207,12 @@ const RootNavigator: React.FC = () => {
             <Stack.Screen
               name="VoucherDetail"
               component={VoucherDetailScreen}
+            />
+
+            <Stack.Screen
+              name="DailyRegister"
+              component={DailyRegisterScreen}
+              options={{ headerShown: false }}
             />
           </>
         )}

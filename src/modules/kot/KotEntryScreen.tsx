@@ -25,16 +25,9 @@ import KotItemRow from "./components/KotItemRow";
 import { formatDateTime } from "../../shared/utils/date";
 import { productApi, Product } from "../../api/productApi";
 import { useThemeStore } from "../../store/themeStore";
+import { RootStackParamList } from "../../navigation/RootNavigator";
 
-type ParamList = {
-  KotEntry: {
-    kotId?: number;
-    booking_id?: number;
-    room_id?: number;
-    table_no?: string;
-    service_type?: KotServiceType;
-  };
-};
+type ParamList = RootStackParamList;
 
 const SERVICE_TYPE_OPTIONS: SelectItem[] = [
   { label: "Table Service", value: "TABLE" },
@@ -89,6 +82,16 @@ const KotEntryScreen: React.FC = () => {
   useEffect(() => {
     if (kotId) {
       loadKot(kotId);
+    } else if (items.length === 0) {
+      setItems([
+        {
+          product_id: 0,
+          qty: 1,
+          rate_at_time: 0,
+          remarks: null,
+          status: "Normal",
+        },
+      ]);
     }
   }, [kotId]);
 
@@ -171,14 +174,19 @@ const KotEntryScreen: React.FC = () => {
     [rooms]
   );
 
-  const getProductName = (productId: number) => {
+  const getProductName = (productId: number, index: number) => {
     const product = products.find((p) => p.product_id === productId);
-    return product?.product_name || "";
+    if (product?.product_name) return product.product_name;
+    return detail?.items?.[index]?.product_name || "";
   };
 
   const getSelectedRoomLabel = () => {
     const room = rooms.find((r) => r.booking_id === bookingId);
-    return room?.display_label || "";
+    if (room?.display_label) return room.display_label;
+
+    if (detail?.kot?.display_label) return detail.kot.display_label;
+    if (detail?.kot?.room_no) return `Room ${detail.kot.room_no}`;
+    return "";
   };
 
   const addItem = () => {
@@ -222,7 +230,7 @@ const KotEntryScreen: React.FC = () => {
               rate_at_time:
                 row.rate_at_time != null && row.rate_at_time > 0
                   ? row.rate_at_time
-                  : (product.rate as number) ?? 0,
+                  : Number(product.rate) || 0,
             }
           : row
       )
@@ -243,6 +251,9 @@ const KotEntryScreen: React.FC = () => {
     } else {
       setTableNo("");
       setOrderErrors((prev) => ({ ...prev, table: "" }));
+      if (!isView) {
+        loadRooms();
+      }
     }
 
     setServiceTypePickerVisible(false);
@@ -297,10 +308,12 @@ const KotEntryScreen: React.FC = () => {
     }
 
     setOrderErrors(nextErrors);
+
     if (Object.keys(nextErrors).length > 0) {
       Alert.alert("Validation", "Please fix the highlighted fields.");
       return false;
     }
+
     return true;
   };
 
@@ -319,14 +332,25 @@ const KotEntryScreen: React.FC = () => {
     try {
       setLoading(true);
       const res = await createKot(payload);
-      Alert.alert("Success", `KOT created successfully: ${res.kot.kot_no}`, [
+
+      const successMessage =
+        serviceType === "ROOM"
+          ? `Room service KOT created.\nCharges are posted to the guest folio.\nKOT No: ${res.kot.kot_no}`
+          : `KOT created successfully.\nKOT No: ${res.kot.kot_no}`;
+
+      Alert.alert("Success", successMessage, [
         {
           text: "Open",
-          onPress: () => navigation.replace("KotEntry", { kotId: res.kot.kot_id }),
+          onPress: () =>
+            navigation.replace("KotEntry", {
+              kotId: res.kot.kot_id,
+              refreshOnFocus: true,
+            }),
         },
         {
           text: "Back to List",
-          onPress: () => navigation.goBack(),
+          onPress: () =>
+            navigation.navigate("KOTList", { refreshOnFocus: true }),
         },
       ]);
     } catch (e: any) {
@@ -345,13 +369,11 @@ const KotEntryScreen: React.FC = () => {
     try {
       setLoading(true);
       await updateKot(kotId, {
-        service_type: serviceType,
         table_no: serviceType === "TABLE" ? tableNo.trim() : undefined,
-        booking_id: serviceType === "ROOM" ? bookingId : undefined,
-        room_id: serviceType === "ROOM" ? roomId : undefined,
         notes: notes.trim() || undefined,
         items,
       });
+
       Alert.alert("Success", "KOT updated successfully");
       await loadKot(kotId);
     } catch (e: any) {
@@ -366,6 +388,7 @@ const KotEntryScreen: React.FC = () => {
 
   const handleCancelKot = async () => {
     if (!kotId) return;
+
     Alert.alert("Cancel KOT", "Are you sure you want to cancel this KOT?", [
       { text: "No" },
       {
@@ -392,9 +415,10 @@ const KotEntryScreen: React.FC = () => {
 
   const handleDeleteKot = async () => {
     if (!kotId) return;
+
     Alert.alert(
       "Delete KOT",
-      "Delete this KOT permanently? (Not billed only)",
+      "Delete this KOT? Only open table KOT can be deleted.",
       [
         { text: "No" },
         {
@@ -404,8 +428,13 @@ const KotEntryScreen: React.FC = () => {
             try {
               setLoading(true);
               await deleteKot(kotId);
-              Alert.alert("Deleted", "KOT deleted");
-              navigation.goBack();
+              Alert.alert("Deleted", "KOT deleted", [
+                {
+                  text: "OK",
+                  onPress: () =>
+                    navigation.navigate("KOTList", { refreshOnFocus: true }),
+                },
+              ]);
             } catch (e: any) {
               Alert.alert(
                 "Error",
@@ -431,8 +460,12 @@ const KotEntryScreen: React.FC = () => {
         }`.trim()
       : "";
 
-  const canEditOrCancel: boolean =
-    !!detail && detail.kot.status === "Open";
+  const isRoomKot = detail?.kot?.service_type === "ROOM";
+  const canEditOrCancel =
+    !!detail &&
+    detail.kot.status === "Open" &&
+    detail.kot.service_type === "TABLE";
+  const fieldsDisabled = isView && !canEditOrCancel;
 
   return (
     <View style={[styles.wrapper, { backgroundColor: theme.colors.background }]}>
@@ -528,6 +561,14 @@ const KotEntryScreen: React.FC = () => {
               Folio: {detail.kot.folio_no}
             </Text>
           ) : null}
+
+          {isRoomKot ? (
+            <Text
+              style={[styles.metaText, { color: theme.colors.textSecondary }]}
+            >
+              This room-service KOT is posted to folio and is read-only here.
+            </Text>
+          ) : null}
         </View>
 
         <SectionTitle title="Order Info" />
@@ -536,7 +577,7 @@ const KotEntryScreen: React.FC = () => {
           label="Service Type"
           value={serviceType}
           editable={false}
-          onPress={isView ? undefined : () => setServiceTypePickerVisible(true)}
+          onPress={!isView ? () => setServiceTypePickerVisible(true) : undefined}
           placeholder="Select service type"
         />
 
@@ -552,7 +593,7 @@ const KotEntryScreen: React.FC = () => {
                 }
               }}
               placeholder="Enter table number"
-              editable={!isView || canEditOrCancel}
+              editable={!fieldsDisabled}
             />
             {orderErrors.table ? (
               <Text style={{ color: theme.colors.error, fontSize: 12 }}>
@@ -564,13 +605,9 @@ const KotEntryScreen: React.FC = () => {
           <>
             <AppInput
               label="Checked-in Room"
-              value={
-                isView
-                  ? detail?.kot?.display_label || detail?.kot?.room_no || ""
-                  : getSelectedRoomLabel()
-              }
+              value={getSelectedRoomLabel()}
               editable={false}
-              onPress={isView ? undefined : () => setRoomPickerVisible(true)}
+              onPress={!isView ? () => setRoomPickerVisible(true) : undefined}
               placeholder="Select checked-in room"
             />
             {orderErrors.room ? (
@@ -585,7 +622,7 @@ const KotEntryScreen: React.FC = () => {
           label="Notes"
           value={notes}
           onChangeText={setNotes}
-          editable={!isView || canEditOrCancel}
+          editable={!fieldsDisabled}
           multiline
           placeholder="Kitchen note / room service note"
         />
@@ -630,14 +667,14 @@ const KotEntryScreen: React.FC = () => {
 
         {items.map((item, index) => (
           <KotItemRow
-            key={index}
+            key={`${index}-${item.product_id}`}
             index={index}
             value={item}
-            productName={getProductName(item.product_id)}
+            productName={getProductName(item.product_id, index)}
             onChange={(next) => updateItem(index, next)}
             onRemove={() => removeItem(index)}
             onSelectProduct={() => openProductPicker(index)}
-            disabled={isView && !canEditOrCancel}
+            disabled={fieldsDisabled}
           />
         ))}
 
@@ -655,28 +692,50 @@ const KotEntryScreen: React.FC = () => {
               loading={loading}
             />
           </>
+        ) : canEditOrCancel ? (
+          <>
+            <AppButton
+              title="Update KOT"
+              onPress={handleUpdate}
+              loading={loading}
+              style={{ marginBottom: 8 }}
+            />
+            <AppButton
+              title="Cancel KOT"
+              variant="outline"
+              onPress={handleCancelKot}
+              style={{ marginBottom: 8 }}
+            />
+            <AppButton
+              title="Delete KOT"
+              variant="outline"
+              onPress={handleDeleteKot}
+            />
+          </>
         ) : (
-          canEditOrCancel && (
-            <>
-              <AppButton
-                title="Update KOT"
-                onPress={handleUpdate}
-                loading={loading}
-                style={{ marginBottom: 8 }}
-              />
-              <AppButton
-                title="Cancel KOT"
-                variant="outline"
-                onPress={handleCancelKot}
-                style={{ marginBottom: 8 }}
-              />
-              <AppButton
-                title="Delete KOT"
-                variant="outline"
-                onPress={handleDeleteKot}
-              />
-            </>
-          )
+          <View
+            style={[
+              styles.readOnlyCard,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+              },
+            ]}
+          >
+            <Text style={[styles.readOnlyTitle, { color: theme.colors.text }]}>
+              Read-only KOT
+            </Text>
+            <Text
+              style={[
+                styles.readOnlySubtitle,
+                { color: theme.colors.textSecondary },
+              ]}
+            >
+              {isRoomKot
+                ? "Room KOT is handled through posting and folio flow."
+                : "This KOT is not editable because it is already billed or cancelled."}
+            </Text>
+          </View>
         )}
       </ScrollView>
 
@@ -752,6 +811,21 @@ const styles = StyleSheet.create({
   emptySubtitle: {
     fontSize: 13,
     textAlign: "center",
+  },
+  readOnlyCard: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 8,
+  },
+  readOnlyTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  readOnlySubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
   },
 });
 

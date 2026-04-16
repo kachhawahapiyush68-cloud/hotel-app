@@ -6,8 +6,8 @@ import {
   StyleSheet,
   TextInput,
   Alert,
-  TouchableOpacity,
   Pressable,
+  TouchableOpacity,
 } from "react-native";
 import { useThemeStore } from "../../../store/themeStore";
 import AppButton from "../../../shared/components/AppButton";
@@ -15,10 +15,9 @@ import AppButton from "../../../shared/components/AppButton";
 type Props = {
   visible: boolean;
   onClose: () => void;
-  onSave: (amount: number, taxAmount: number, paymentType?: string | null) => void;
+  onSave: (amount: number, taxAmount: number) => void;
   initialAmount: number;
   initialTaxAmount: number;
-  initialPaymentType?: string | null;
   editable: boolean;
   loading?: boolean;
 };
@@ -29,7 +28,6 @@ const PostingEditModal: React.FC<Props> = ({
   onSave,
   initialAmount,
   initialTaxAmount,
-  initialPaymentType,
   editable,
   loading = false,
 }) => {
@@ -38,7 +36,6 @@ const PostingEditModal: React.FC<Props> = ({
 
   const [amount, setAmount] = useState(String(initialAmount || ""));
   const [taxAmount, setTaxAmount] = useState(String(initialTaxAmount || 0));
-  const [paymentType, setPaymentType] = useState(initialPaymentType || "");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -53,10 +50,9 @@ const PostingEditModal: React.FC<Props> = ({
           ? String(initialTaxAmount)
           : "0"
       );
-      setPaymentType(initialPaymentType || "");
       setErrors({});
     }
-  }, [visible, initialAmount, initialTaxAmount, initialPaymentType]);
+  }, [visible, initialAmount, initialTaxAmount]);
 
   const parsedAmount = useMemo(() => Number(amount || 0), [amount]);
   const parsedTaxAmount = useMemo(() => Number(taxAmount || 0), [taxAmount]);
@@ -81,13 +77,6 @@ const PostingEditModal: React.FC<Props> = ({
       }
     }
 
-    if (String(paymentType || "").trim().length > 0) {
-      const normalized = String(paymentType).trim().toUpperCase();
-      if (normalized.length < 2) {
-        nextErrors.paymentType = "Payment type is too short";
-      }
-    }
-
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -102,11 +91,7 @@ const PostingEditModal: React.FC<Props> = ({
 
     if (!validate()) return;
 
-    onSave(
-      Number(amount),
-      Number(taxAmount || 0),
-      paymentType.trim() ? paymentType.trim().toUpperCase() : null
-    );
+    onSave(Number(amount), Number(taxAmount || 0));
   };
 
   return (
@@ -146,7 +131,7 @@ const PostingEditModal: React.FC<Props> = ({
               },
             ]}
           >
-            Update amount, tax, and payment type.
+            Update amount and tax.
           </Text>
 
           <View style={{ marginTop: 14 }}>
@@ -209,38 +194,6 @@ const PostingEditModal: React.FC<Props> = ({
             {!!errors.taxAmount && (
               <Text style={[styles.errorText, { color: colors.error }]}>
                 {errors.taxAmount}
-              </Text>
-            )}
-          </View>
-
-          <View style={{ marginTop: 12 }}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>
-              Payment Type
-            </Text>
-            <TextInput
-              value={paymentType}
-              onChangeText={(val) => {
-                setPaymentType(val);
-                if (errors.paymentType) {
-                  setErrors((prev) => ({ ...prev, paymentType: "" }));
-                }
-              }}
-              editable={editable && !loading}
-              autoCapitalize="characters"
-              placeholder="CASH / CARD / UPI / ADVANCE / REFUND"
-              placeholderTextColor={colors.textSecondary}
-              style={[
-                styles.input,
-                {
-                  color: colors.text,
-                  borderColor: errors.paymentType ? colors.error : colors.border,
-                  backgroundColor: colors.background,
-                },
-              ]}
-            />
-            {!!errors.paymentType && (
-              <Text style={[styles.errorText, { color: colors.error }]}>
-                {errors.paymentType}
               </Text>
             )}
           </View>

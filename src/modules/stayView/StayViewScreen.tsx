@@ -15,6 +15,8 @@ import {
 import { postingApi, RoomPosting } from "../../api/postingApi";
 import PostingList from "./components/PostingList";
 
+const EXCLUDED_SUMMARY_TYPES = new Set(["TAXI"]);
+
 const StayViewScreen: React.FC = () => {
   const { currentBooking, currentFolio, setCurrentManual } = useBookingStore();
   const { theme } = useThemeStore();
@@ -77,7 +79,10 @@ const StayViewScreen: React.FC = () => {
 
       const detail = await bookingApi.getById(bookingId);
       const booking =
-        (detail as any)?.booking || (detail as any)?.data || detail || currentBooking;
+        (detail as any)?.booking ||
+        (detail as any)?.data ||
+        detail ||
+        currentBooking;
 
       const folioId = Number(
         booking?.folio_id ||
@@ -126,7 +131,10 @@ const StayViewScreen: React.FC = () => {
     try {
       const detail = await bookingApi.getById(bookingId);
       const nextBooking =
-        (detail as any)?.booking || (detail as any)?.data || detail || currentBooking;
+        (detail as any)?.booking ||
+        (detail as any)?.data ||
+        detail ||
+        currentBooking;
 
       setCurrentManual(
         {
@@ -231,15 +239,39 @@ const StayViewScreen: React.FC = () => {
     );
   }
 
-  const grossAmount = postings.reduce(
-    (sum, row) => sum + Number(row.amount || 0),
-    0
-  );
-  const taxAmount = postings.reduce(
-    (sum, row) => sum + Number(row.tax_amount || 0),
-    0
-  );
-  const netAmount = grossAmount + taxAmount;
+  let chargesAmount = 0;
+  let paymentsAmount = 0;
+  let discountsAmount = 0;
+  let excludedDisplayAmount = 0;
+
+  for (const row of postings) {
+    const ct = String(row.charge_type || "").toUpperCase().trim();
+    const lineAmount = Number(row.amount || 0) + Number(row.tax_amount || 0);
+
+    if (!Number.isFinite(lineAmount) || lineAmount === 0) continue;
+
+    if (EXCLUDED_SUMMARY_TYPES.has(ct)) {
+      excludedDisplayAmount += lineAmount;
+      continue;
+    }
+
+    if (
+      ct === "ADVANCE" ||
+      ct === "PAYMENT" ||
+      ct === "CASH" ||
+      ct === "BANK" ||
+      ct === "UPI" ||
+      ct === "CARD"
+    ) {
+      paymentsAmount += lineAmount;
+    } else if (ct === "TC" || ct === "DISCOUNT") {
+      discountsAmount += lineAmount;
+    } else {
+      chargesAmount += lineAmount;
+    }
+  }
+
+  const netAmount = chargesAmount - discountsAmount - paymentsAmount;
 
   const runCheckoutOnly = async () => {
     if (checkoutLoading || !bookingId) return;
@@ -569,11 +601,29 @@ const StayViewScreen: React.FC = () => {
         </Text>
 
         <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-          Charges: ₹ {grossAmount.toFixed(2)}
+          Charges: ₹ {chargesAmount.toFixed(2)}
         </Text>
-        <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>
-          Tax: ₹ {taxAmount.toFixed(2)}
+
+        <Text
+          style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}
+        >
+          Discounts: ₹ {discountsAmount.toFixed(2)}
         </Text>
+
+        <Text
+          style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}
+        >
+          Payments / Advance: ₹ {paymentsAmount.toFixed(2)}
+        </Text>
+
+        {excludedDisplayAmount > 0 && (
+          <Text
+            style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}
+          >
+            Taxi / Display Only: ₹ {excludedDisplayAmount.toFixed(2)}
+          </Text>
+        )}
+
         <Text
           style={{
             color: colors.text,
@@ -582,7 +632,7 @@ const StayViewScreen: React.FC = () => {
             marginTop: 6,
           }}
         >
-          Total: ₹ {netAmount.toFixed(2)}
+          Total Due: ₹ {netAmount.toFixed(2)}
         </Text>
 
         {(folioLoading || postingsLoading) && (

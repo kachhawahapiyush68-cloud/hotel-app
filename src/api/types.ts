@@ -1,5 +1,3 @@
-// ───────── KOT TYPES ─────────
-
 export type KotStatus = "Open" | "Billed" | "Cancelled";
 export type KotItemStatus = "Normal" | "Cancelled";
 export type KotServiceType = "TABLE" | "ROOM";
@@ -93,80 +91,116 @@ export interface InHouseRoomOption {
   guest_name: string | null;
   folio_id: number | null;
   folio_no: string | null;
-  reservation_no: string | null;
+  reservation_no?: string | null;
   check_in_datetime?: string | null;
   display_label: string;
 }
 
-// ───────── LEDGER TYPES ─────────
+
+
+
+// ============================================================
+// src/api/types.ts
+// ============================================================
+
+// ── Ledger types ─────────────────────────────────────────────
+
+export type LedgerType =
+  | "CASH"
+  | "BANK"
+  | "RECEIVABLE"
+  | "LIABILITY"
+  | "REVENUE"
+  | "EXPENSE";
+
+export type DrCrFlag = "Dr" | "Cr";
 
 export interface Ledger {
-  ledger_id?: number;
+  ledger_id: number;
   company_id: number;
   ledger_name: string;
-  ledger_type: string;
-  opening_balance?: number | string;
-  dr_cr_flag?: "Dr" | "Cr";
-  is_system_ledger?: number;
-  is_active?: number;
-  is_deleted?: number;
+  ledger_type: LedgerType;
+  opening_balance: number;
+  dr_cr_flag: DrCrFlag;
+  is_system_ledger: number;
+  is_active: number;
+  is_deleted: number;
   created_at?: string;
   updated_at?: string;
 }
 
 export interface CreateLedgerPayload {
-  company_id?: number;
   ledger_name: string;
-  ledger_type: string;
+  ledger_type: LedgerType;
   opening_balance?: number;
-  dr_cr_flag?: "Dr" | "Cr";
-  is_system_ledger?: number;
+  dr_cr_flag?: DrCrFlag;
   is_active?: number;
 }
 
 export interface UpdateLedgerPayload {
-  company_id?: number;
   ledger_name?: string;
-  ledger_type?: string;
+  ledger_type?: LedgerType;
   opening_balance?: number;
-  dr_cr_flag?: "Dr" | "Cr";
+  dr_cr_flag?: DrCrFlag;
+  is_active?: number;
+}
+
+// ── Ledger book entry ────────────────────────────────────────
+
+export interface LedgerBookEntry {
+  voucher_date: string;
+  voucher_no: string;
+  voucher_type: string;
+  narration?: string | null;
+  reference_no?: string | null;
+  dr_amount: number;
+  cr_amount: number;
+  balance: number;
+}
+
+export type LedgerSummaryEntry = LedgerBookEntry;
+
+export interface LedgerSummaryResponse {
+  ledger: Ledger;
+  opening_balance: number;
+  period_dr: number;
+  period_cr: number;
+  closing_balance: number;
+  entries: LedgerBookEntry[];
+}
+
+export interface LedgerSummaryRow {
+  ledger_id: number;
+  ledger_name: string;
+  ledger_type: LedgerType;
+  dr_cr_flag: DrCrFlag;
+  opening_balance: number;
+  total_dr: number;
+  total_cr: number;
+  closing_balance: number;
   is_system_ledger?: number;
   is_active?: number;
 }
 
-export interface LedgerSummaryResponse extends Ledger {
-  total_debit?: number;
-  total_credit?: number;
-  closing_balance?: number;
-  closing_flag?: "Dr" | "Cr";
-}
+// ── Voucher types ────────────────────────────────────────────
 
-// ───────── VOUCHER TYPES ─────────
-
-export type VoucherType =
-  | "Receipt"
-  | "Payment"
-  | "Journal"
-  | "Contra"
-  | "Sales"
-  | "Purchase"
-  | string;
+export type VoucherType = "Receipt" | "Payment" | "Journal";
 
 export interface VoucherDetail {
   voucher_detail_id?: number;
   voucher_id?: number;
   ledger_id: number;
+  ledger_name?: string;
+  ledger_type?: LedgerType | string;
   dr_amount: number;
   cr_amount: number;
   is_deleted?: number;
   created_at?: string;
   updated_at?: string;
-  ledger_name?: string;
-  ledger_type?: string;
 }
 
 export interface Voucher {
-  voucher_id?: number;
+  voucher_id: number;
   company_id: number;
   voucher_no: string;
   voucher_date: string;
@@ -174,34 +208,51 @@ export interface Voucher {
   narration?: string | null;
   reference_no?: string | null;
   created_by?: number | null;
-  is_deleted?: number;
+  is_deleted: number;
   created_at?: string;
   updated_at?: string;
+
+  total_dr?: number;
+  total_cr?: number;
+  bill_no?: string | null;
   details?: VoucherDetail[];
+  created_by_name?: string | null;
 }
 
-export interface CreateVoucherDetailInput {
-  ledger_id: number;
-  dr_amount: number;
-  cr_amount: number;
+export interface VoucherDetailResponse {
+  voucher: Voucher;
+  details: VoucherDetail[];
 }
 
 export interface CreateVoucherPayload {
-  company_id?: number;
-  voucher_no?: string;
   voucher_date: string;
   voucher_type: VoucherType;
   narration?: string;
   reference_no?: string;
-  details: CreateVoucherDetailInput[];
+  details: {
+    ledger_id: number;
+    dr_amount: number;
+    cr_amount: number;
+  }[];
 }
 
 export interface UpdateVoucherPayload {
-  company_id?: number;
-  voucher_no: string;
-  voucher_date: string;
-  voucher_type: VoucherType;
+  voucher_date?: string;
   narration?: string;
   reference_no?: string;
-  details: CreateVoucherDetailInput[];
+  details?: {
+    ledger_id: number;
+    dr_amount: number;
+    cr_amount: number;
+  }[];
+}
+
+// ── Daily expense rows ───────────────────────────────────────
+
+export interface DailyExpenseRow {
+  voucher_id: number;
+  voucher_no: string;
+  narration: string;
+  amount: number;
+  ledger_name: string;
 }

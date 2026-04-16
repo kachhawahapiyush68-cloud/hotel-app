@@ -12,6 +12,10 @@ export async function fetchKotList(status?: KotStatus): Promise<Kot[]> {
   return kotApi.getKots(status ? { status } : undefined);
 }
 
+export async function fetchBillableTableKotList(): Promise<Kot[]> {
+  return kotApi.getBillableTableKots();
+}
+
 export async function fetchKotDetail(id: number): Promise<KotDetailResponse> {
   return kotApi.getKotById(id);
 }

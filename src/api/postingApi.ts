@@ -32,7 +32,7 @@ export interface CreateExtraChargePayload {
   tax_amount?: number;
   posting_date?: string;
   company_id?: number;
-  payment_type?: string; // CASH / CARD / UPI / ADVANCE / REFUND etc.
+  payment_type?: string; // still allowed, but AddChargeScreen will not send it
 }
 
 export interface UpdatePostingPayload {
@@ -43,23 +43,29 @@ export interface UpdatePostingPayload {
 
 function normalizePosting(row: any): RoomPosting {
   return {
-    ...row,
     posting_id: Number(row?.posting_id || 0),
     company_id: Number(row?.company_id || 0),
     booking_id: Number(row?.booking_id || 0),
     folio_id: Number(row?.folio_id || 0),
     room_id: Number(row?.room_id || 0),
+    posting_date: String(row?.posting_date || ""),
+    charge_type: String(row?.charge_type || ""),
     amount: Number(row?.amount || 0),
     tax_amount: Number(row?.tax_amount || 0),
     is_auto_posted: Number(row?.is_auto_posted || 0),
     is_deleted: Number(row?.is_deleted || 0),
+    created_at: String(row?.created_at || ""),
+    updated_at: String(row?.updated_at || ""),
     payment_type: row?.payment_type ?? null,
   };
 }
 
 export const postingApi = {
   async postRoomRent(payload: PostRoomRentPayload): Promise<RoomPosting> {
-    const res = await httpClient.post<RoomPosting>("/postings/room-rent", payload);
+    const res = await httpClient.post<RoomPosting>(
+      "/postings/room-rent",
+      payload
+    );
     return normalizePosting(res.data);
   },
 
@@ -74,7 +80,9 @@ export const postingApi = {
   },
 
   async listByFolio(folioId: number): Promise<RoomPosting[]> {
-    const res = await httpClient.get<RoomPosting[]>(`/postings/folio/${folioId}`);
+    const res = await httpClient.get<RoomPosting[]>(
+      `/postings/folio/${folioId}`
+    );
     return Array.isArray(res.data) ? res.data.map(normalizePosting) : [];
   },
 
