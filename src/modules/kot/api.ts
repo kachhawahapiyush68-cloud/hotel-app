@@ -16,6 +16,10 @@ export async function fetchBillableTableKotList(): Promise<Kot[]> {
   return kotApi.getBillableTableKots();
 }
 
+export async function fetchBillableRoomKotList(): Promise<Kot[]> {
+  return kotApi.getBillableRoomKots();
+}
+
 export async function fetchKotDetail(id: number): Promise<KotDetailResponse> {
   return kotApi.getKotById(id);
 }
@@ -46,6 +50,12 @@ export async function updateKotStatus(
   return kotApi.updateKotStatus(id, status);
 }
 
+export async function markKotBilled(
+  id: number
+): Promise<KotDetailResponse> {
+  return kotApi.markKotBilled(id);
+}
+
 export async function deleteKot(id: number): Promise<void> {
-  return kotApi.deleteKot(id);
+  await kotApi.deleteKot(id);
 }

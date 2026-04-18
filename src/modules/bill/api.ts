@@ -1,7 +1,3 @@
-// ============================================================
-// src/modules/bill/api.ts
-// ============================================================
-
 import { billApi } from "../../api/billApi";
 import {
   Bill,
@@ -21,11 +17,14 @@ export async function fetchBillList(
   billtype?: string,
   companyid?: number
 ): Promise<Bill[]> {
+  const hasBillType = !!billtype;
+  const hasCompanyId = companyid !== undefined && companyid !== null;
+
   const params: BillListParams | undefined =
-    billtype || companyid
+    hasBillType || hasCompanyId
       ? {
-          ...(billtype ? { billtype } : {}),
-          ...(companyid ? { companyid } : {}),
+          ...(hasBillType ? { bill_type: billtype, billtype } : {}),
+          ...(hasCompanyId ? { company_id: companyid, companyid } : {}),
         }
       : undefined;
 

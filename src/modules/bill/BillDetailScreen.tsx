@@ -1,7 +1,3 @@
-// ============================================================
-// src/modules/bill/BillDetailScreen.tsx
-// ============================================================
-
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
@@ -16,6 +12,7 @@ import {
   BillSummary,
   MarkPaidPayload,
   MarkRefundPayload,
+  PaymentMode,
   normalizePaymentStatus,
   getPaymentStatusLabel,
   getPaymentStatusColor,
@@ -67,23 +64,34 @@ const BillDetailScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { theme } = useThemeStore();
   const colors = theme.colors;
-  const billId = route.params.billId;
+
+  const billId = Number(route.params?.billId || 0);
 
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [detail, setDetail] = useState<BillDetailResponse | null>(null);
-  const [loadError, setLoadError] = useState<string>("");
+  const [loadError, setLoadError] = useState("");
 
   const [paymentModal, setPaymentModal] = useState(false);
   const [payModeModal, setPayModeModal] = useState(false);
   const [refundModeModal, setRefundModeModal] = useState(false);
 
   const load = useCallback(async () => {
+    if (!Number.isInteger(billId) || billId <= 0) {
+      setLoadError("Invalid bill id");
+      setDetail(null);
+      return;
+    }
+
     try {
       setLoading(true);
       setLoadError("");
       const res = await fetchBillDetail(billId);
-      setDetail(res);
+      setDetail({
+        bill: res.bill,
+        items: Array.isArray(res.items) ? res.items : [],
+        summary: res.summary,
+      });
     } catch (e: any) {
       const msg = getApiErrorMessage(e, "Failed to load bill");
       setLoadError(msg);
@@ -97,6 +105,14 @@ const BillDetailScreen: React.FC = () => {
     load();
   }, [load]);
 
+  const applyDetail = useCallback((res: BillDetailResponse) => {
+    setDetail({
+      bill: res.bill,
+      items: Array.isArray(res.items) ? res.items : [],
+      summary: res.summary,
+    });
+  }, []);
+
   const bill = detail?.bill;
   const summary: BillSummary | null = detail?.summary ?? null;
   const items = detail?.items ?? [];
@@ -109,14 +125,26 @@ const BillDetailScreen: React.FC = () => {
   const payStatus = normalizePaymentStatus(bill?.payment_status);
   const statusLabel = getPaymentStatusLabel(payStatus);
   const statusColor = getPaymentStatusColor(payStatus);
+
   const isPaid = payStatus === "Paid";
   const isRefund = payStatus === "Refund";
+  const isPartial = payStatus === "Partial";
+
+  const canCollectPayment = !!summary && Number(summary.due_amount || 0) > 0;
+  const canProcessRefund =
+    !!summary &&
+    Number(summary.refund_amount || 0) > 0 &&
+    !isRefund;
 
   const chargeItems = items.filter(
-    (i) => (i.display_category ?? "CHARGE") === "CHARGE"
+    (i) => String(i.display_category || "CHARGE").toUpperCase() === "CHARGE"
   );
-  const discountItems = items.filter((i) => i.display_category === "DISCOUNT");
-  const paymentItems = items.filter((i) => i.display_category === "PAYMENT");
+  const discountItems = items.filter(
+    (i) => String(i.display_category || "").toUpperCase() === "DISCOUNT"
+  );
+  const paymentItems = items.filter(
+    (i) => String(i.display_category || "").toUpperCase() === "PAYMENT"
+  );
 
   const onSelectPaymentStatus = async (item: SelectItem) => {
     if (loading || actionLoading) return;
@@ -149,11 +177,11 @@ const BillDetailScreen: React.FC = () => {
     setPayModeModal(false);
     if (!summary) return;
 
-    const paymentMode = item.value as "CASH" | "BANK" | "UPI" | "CARD";
-    const dueAmount = summary.due_amount;
+    const paymentMode = String(item.value).toUpperCase() as PaymentMode;
+    const dueAmount = Number(summary.due_amount || 0);
 
     Alert.alert(
-      "Mark Paid",
+      "Collect Payment",
       `Collect ₹ ${formatNumber(dueAmount, 2)} via ${item.label}?`,
       [
         { text: "Cancel" },
@@ -169,7 +197,11 @@ const BillDetailScreen: React.FC = () => {
               };
 
               const res = await markBillPaid(billId, payload);
-              await load();
+              applyDetail({
+                bill: res.bill,
+                items: res.items,
+                summary: res.summary,
+              });
 
               const voucherText = res.voucher
                 ? `\nVoucher: ${res.voucher.voucher_no} (${res.voucher.voucher_type})`
@@ -177,7 +209,7 @@ const BillDetailScreen: React.FC = () => {
 
               Alert.alert("Success", `Payment recorded.${voucherText}`);
             } catch (e: any) {
-              Alert.alert("Error", getApiErrorMessage(e, "Failed"));
+              Alert.alert("Error", getApiErrorMessage(e, "Failed to record payment"));
             } finally {
               setActionLoading(false);
             }
@@ -205,12 +237,15 @@ const BillDetailScreen: React.FC = () => {
     setRefundModeModal(false);
     if (!summary) return;
 
-    const refundMode = item.value as "CASH" | "BANK" | "UPI" | "CARD";
-    const refundAmount = summary.refund_amount;
+    const refundMode = String(item.value).toUpperCase() as PaymentMode;
+    const refundAmount = Number(summary.refund_amount || 0);
 
     Alert.alert(
       "Process Refund",
-      `Return ₹ ${formatNumber(refundAmount, 2)} via ${item.label}?\nThis action cannot be undone.`,
+      `Return ₹ ${formatNumber(
+        refundAmount,
+        2
+      )} via ${item.label}?\nThis action cannot be undone.`,
       [
         { text: "Cancel" },
         {
@@ -225,7 +260,11 @@ const BillDetailScreen: React.FC = () => {
               };
 
               const res = await markBillRefund(billId, payload);
-              await load();
+              applyDetail({
+                bill: res.bill,
+                items: res.items,
+                summary: res.summary,
+              });
 
               const voucherText = res.voucher
                 ? `\nVoucher: ${res.voucher.voucher_no} (${res.voucher.voucher_type})`
@@ -233,7 +272,7 @@ const BillDetailScreen: React.FC = () => {
 
               Alert.alert("Success", `Refund processed.${voucherText}`);
             } catch (e: any) {
-              Alert.alert("Error", getApiErrorMessage(e, "Failed"));
+              Alert.alert("Error", getApiErrorMessage(e, "Failed to process refund"));
             } finally {
               setActionLoading(false);
             }
@@ -259,7 +298,7 @@ const BillDetailScreen: React.FC = () => {
               { text: "OK", onPress: () => navigation.goBack() },
             ]);
           } catch (e: any) {
-            Alert.alert("Error", getApiErrorMessage(e, "Failed"));
+            Alert.alert("Error", getApiErrorMessage(e, "Failed to delete bill"));
           } finally {
             setActionLoading(false);
           }
@@ -355,18 +394,27 @@ const BillDetailScreen: React.FC = () => {
               {summary.discount_amount > 0 && (
                 <Row
                   label="Discount"
-                  value={summary.discount_amount}
+                  value={-Math.abs(summary.discount_amount)}
                   colors={colors}
-                  negative
+                  color="#D98E04"
+                  bold
                 />
               )}
 
-              {summary.tax_amount > 0 && (
-                <Row label="Tax" value={summary.tax_amount} colors={colors} />
+              {summary.tax_amount !== 0 && (
+                <Row
+                  label="Tax"
+                  value={summary.tax_amount}
+                  colors={colors}
+                />
               )}
 
               {summary.round_off !== 0 && (
-                <Row label="Round Off" value={summary.round_off} colors={colors} />
+                <Row
+                  label="Round Off"
+                  value={summary.round_off}
+                  colors={colors}
+                />
               )}
 
               <View style={[styles.divider, { borderColor: colors.border }]} />
@@ -451,7 +499,7 @@ const BillDetailScreen: React.FC = () => {
         {paymentItems.length > 0 && (
           <>
             <SectionTitle
-              title="Payments Received"
+              title="Payments"
               subtitle={`${paymentItems.length} item${paymentItems.length === 1 ? "" : "s"}`}
             />
             {paymentItems.map((item, i) => (
@@ -474,18 +522,18 @@ const BillDetailScreen: React.FC = () => {
         )}
 
         <View style={styles.actions}>
-          {(payStatus === "Unpaid" || payStatus === "Partial") && (
+          {canCollectPayment && (
             <AppButton
-              title={actionLoading ? "Processing..." : "Mark Paid + Voucher"}
+              title={actionLoading ? "Processing..." : "Collect Payment"}
               onPress={onMarkPaidPress}
               style={styles.actionBtn}
               disabled={loading || actionLoading}
             />
           )}
 
-          {isRefund && (
+          {canProcessRefund && (
             <AppButton
-              title={actionLoading ? "Processing..." : "Process Refund + Voucher"}
+              title={actionLoading ? "Processing..." : "Process Refund"}
               onPress={onMarkRefundPress}
               style={[styles.actionBtn, styles.refundBtn]}
               disabled={loading || actionLoading}
@@ -505,7 +553,7 @@ const BillDetailScreen: React.FC = () => {
             variant="outline"
             onPress={onDelete}
             style={styles.actionBtn}
-            disabled={loading || actionLoading || isPaid || isRefund}
+            disabled={loading || actionLoading || isPaid || isPartial || isRefund}
           />
         </View>
       </ScrollView>
@@ -541,7 +589,6 @@ const Row: React.FC<{
   label: string;
   value: number;
   colors: any;
-  negative?: boolean;
   bold?: boolean;
   primary?: boolean;
   color?: string;
@@ -549,12 +596,13 @@ const Row: React.FC<{
   label,
   value,
   colors,
-  negative = false,
   bold = false,
   primary = false,
   color,
 }) => {
   const textColor = color ?? (primary ? colors.primary : colors.text);
+  const isNegative = Number(value) < 0;
+  const safeValue = Math.abs(Number(value || 0));
 
   return (
     <View style={rowStyles.row}>
@@ -572,7 +620,7 @@ const Row: React.FC<{
           { color: textColor, fontWeight: bold ? "700" : "500" },
         ]}
       >
-        {negative ? "- " : ""}₹ {formatNumber(value, 2)}
+        {isNegative ? "- " : ""}₹ {formatNumber(safeValue, 2)}
       </Text>
     </View>
   );

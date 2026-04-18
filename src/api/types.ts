@@ -27,6 +27,7 @@ export interface Kot {
   reservation_no?: string | null;
   folio_no?: string | null;
   display_label?: string;
+  total_amount?: number | string | null;
 }
 
 export interface KotItem {
@@ -61,7 +62,7 @@ export interface CreateKotItemInput {
 }
 
 export interface CreateKotPayload {
-  company_id?: number;
+  company_id?: number; // usually only SUPER_ADMIN flows send this
   kot_datetime?: string;
   service_type: KotServiceType;
   table_no?: string | null;
@@ -95,7 +96,6 @@ export interface InHouseRoomOption {
   check_in_datetime?: string | null;
   display_label: string;
 }
-
 
 
 

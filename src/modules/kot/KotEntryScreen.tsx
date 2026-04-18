@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { ScrollView, StyleSheet, Alert, View, Text } from "react-native";
 import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import {
@@ -28,16 +28,29 @@ import { useThemeStore } from "../../store/themeStore";
 import { RootStackParamList } from "../../navigation/RootNavigator";
 
 type ParamList = RootStackParamList;
+type RouteProps = RouteProp<ParamList, "KotEntry">;
 
 const SERVICE_TYPE_OPTIONS: SelectItem[] = [
   { label: "Table Service", value: "TABLE" },
   { label: "Room Service", value: "ROOM" },
 ];
 
+const EMPTY_ITEM: CreateKotItemInput = {
+  product_id: 0,
+  qty: 1,
+  rate_at_time: 0,
+  remarks: null,
+  status: "Normal",
+};
+
+const getApiErrorMessage = (e: any, fallback: string) =>
+  e?.response?.data?.message || e?.response?.data?.error || e?.message || fallback;
+
 const KotEntryScreen: React.FC = () => {
   const navigation = useNavigation<any>();
-  const route = useRoute<RouteProp<ParamList, "KotEntry">>();
+  const route = useRoute<RouteProps>();
   const { theme } = useThemeStore();
+  const colors = theme.colors;
 
   const kotId = route.params?.kotId;
   const isView = !!kotId;
@@ -51,9 +64,7 @@ const KotEntryScreen: React.FC = () => {
   const [bookingId, setBookingId] = useState<number | undefined>(
     route.params?.booking_id
   );
-  const [roomId, setRoomId] = useState<number | undefined>(
-    route.params?.room_id
-  );
+  const [roomId, setRoomId] = useState<number | undefined>(route.params?.room_id);
   const [serviceType, setServiceType] = useState<KotServiceType>(
     route.params?.service_type || "TABLE"
   );
@@ -65,8 +76,7 @@ const KotEntryScreen: React.FC = () => {
   const [pickerVisible, setPickerVisible] = useState(false);
   const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null);
 
-  const [serviceTypePickerVisible, setServiceTypePickerVisible] =
-    useState(false);
+  const [serviceTypePickerVisible, setServiceTypePickerVisible] = useState(false);
   const [roomPickerVisible, setRoomPickerVisible] = useState(false);
 
   const [orderErrors, setOrderErrors] = useState<{
@@ -75,57 +85,25 @@ const KotEntryScreen: React.FC = () => {
     items?: string;
   }>({});
 
-  useEffect(() => {
-    loadProducts();
-  }, []);
-
-  useEffect(() => {
-    if (kotId) {
-      loadKot(kotId);
-    } else if (items.length === 0) {
-      setItems([
-        {
-          product_id: 0,
-          qty: 1,
-          rate_at_time: 0,
-          remarks: null,
-          status: "Normal",
-        },
-      ]);
-    }
-  }, [kotId]);
-
-  useEffect(() => {
-    if (!isView && serviceType === "ROOM") {
-      loadRooms();
-    }
-  }, [serviceType, isView]);
-
-  const loadProducts = async () => {
+  const loadProducts = useCallback(async () => {
     try {
       const res = await productApi.list();
-      setProducts(res);
+      setProducts(Array.isArray(res) ? res : []);
     } catch (e: any) {
-      Alert.alert(
-        "Error",
-        e?.response?.data?.message || e?.message || "Failed to load products"
-      );
+      Alert.alert("Error", getApiErrorMessage(e, "Failed to load products"));
     }
-  };
+  }, []);
 
-  const loadRooms = async () => {
+  const loadRooms = useCallback(async () => {
     try {
       const res = await fetchInHouseRooms();
-      setRooms(res);
+      setRooms(Array.isArray(res) ? res : []);
     } catch (e: any) {
-      Alert.alert(
-        "Error",
-        e?.response?.data?.message || e?.message || "Failed to load rooms"
-      );
+      Alert.alert("Error", getApiErrorMessage(e, "Failed to load rooms"));
     }
-  };
+  }, []);
 
-  const loadKot = async (id: number) => {
+  const loadKot = useCallback(async (id: number) => {
     try {
       setLoading(true);
       const res = await fetchKotDetail(id);
@@ -138,23 +116,38 @@ const KotEntryScreen: React.FC = () => {
       setServiceType(res.kot.service_type || "TABLE");
 
       setItems(
-        res.items.map((item) => ({
+        (res.items || []).map((item) => ({
           product_id: item.product_id,
-          qty: item.qty,
-          rate_at_time: item.rate_at_time,
+          qty: Number(item.qty) || 0,
+          rate_at_time: Number(item.rate_at_time) || 0,
           remarks: item.remarks || null,
           status: item.status || "Normal",
         }))
       );
     } catch (e: any) {
-      Alert.alert(
-        "Error",
-        e?.response?.data?.message || e?.message || "Failed to load KOT"
-      );
+      Alert.alert("Error", getApiErrorMessage(e, "Failed to load KOT"));
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
+
+  useEffect(() => {
+    if (kotId) {
+      loadKot(kotId);
+    } else if (items.length === 0) {
+      setItems([{ ...EMPTY_ITEM }]);
+    }
+  }, [kotId, loadKot, items.length]);
+
+  useEffect(() => {
+    if (!isView && serviceType === "ROOM") {
+      loadRooms();
+    }
+  }, [serviceType, isView, loadRooms]);
 
   const productOptions: SelectItem[] = useMemo(
     () =>
@@ -183,23 +176,13 @@ const KotEntryScreen: React.FC = () => {
   const getSelectedRoomLabel = () => {
     const room = rooms.find((r) => r.booking_id === bookingId);
     if (room?.display_label) return room.display_label;
-
     if (detail?.kot?.display_label) return detail.kot.display_label;
     if (detail?.kot?.room_no) return `Room ${detail.kot.room_no}`;
     return "";
   };
 
   const addItem = () => {
-    setItems((prev) => [
-      ...prev,
-      {
-        product_id: 0,
-        qty: 1,
-        rate_at_time: 0,
-        remarks: null,
-        status: "Normal",
-      },
-    ]);
+    setItems((prev) => [...prev, { ...EMPTY_ITEM }]);
   };
 
   const updateItem = (index: number, next: CreateKotItemInput) => {
@@ -228,8 +211,8 @@ const KotEntryScreen: React.FC = () => {
               ...row,
               product_id: product.product_id,
               rate_at_time:
-                row.rate_at_time != null && row.rate_at_time > 0
-                  ? row.rate_at_time
+                row.rate_at_time != null && Number(row.rate_at_time) > 0
+                  ? Number(row.rate_at_time)
                   : Number(product.rate) || 0,
             }
           : row
@@ -238,6 +221,7 @@ const KotEntryScreen: React.FC = () => {
 
     setPickerVisible(false);
     setSelectedRowIndex(null);
+    setOrderErrors((prev) => ({ ...prev, items: "" }));
   };
 
   const onSelectServiceType = (item: SelectItem) => {
@@ -251,9 +235,7 @@ const KotEntryScreen: React.FC = () => {
     } else {
       setTableNo("");
       setOrderErrors((prev) => ({ ...prev, table: "" }));
-      if (!isView) {
-        loadRooms();
-      }
+      if (!isView) loadRooms();
     }
 
     setServiceTypePickerVisible(false);
@@ -273,12 +255,25 @@ const KotEntryScreen: React.FC = () => {
     () =>
       items.reduce(
         (sum, item) =>
-          sum +
-          (Number(item.qty) || 0) * (Number(item.rate_at_time ?? 0) || 0),
+          sum + (Number(item.qty) || 0) * (Number(item.rate_at_time ?? 0) || 0),
         0
       ),
     [items]
   );
+
+  const currentKotServiceType: KotServiceType =
+    detail?.kot?.service_type || serviceType || "TABLE";
+
+  const isRoomKot = currentKotServiceType === "ROOM";
+
+  const currentKotStatus = detail?.kot?.status || "Open";
+
+  const canEditOrCancel =
+    !!detail &&
+    currentKotStatus === "Open" &&
+    currentKotServiceType === "TABLE";
+
+  const fieldsDisabled = isView && !canEditOrCancel;
 
   const validate = () => {
     const nextErrors: typeof orderErrors = {};
@@ -299,11 +294,11 @@ const KotEntryScreen: React.FC = () => {
       }
     }
 
-    if (serviceType === "TABLE" && !tableNo.trim()) {
+    if (currentKotServiceType === "TABLE" && !tableNo.trim()) {
       nextErrors.table = "Table no is required for table KOT";
     }
 
-    if (serviceType === "ROOM" && !bookingId) {
+    if (currentKotServiceType === "ROOM" && !bookingId) {
       nextErrors.room = "Please select a checked-in room";
     }
 
@@ -321,12 +316,18 @@ const KotEntryScreen: React.FC = () => {
     if (!validate()) return;
 
     const payload: CreateKotPayload = {
-      service_type: serviceType,
-      table_no: serviceType === "TABLE" ? tableNo.trim() : undefined,
-      booking_id: serviceType === "ROOM" ? bookingId : undefined,
-      room_id: serviceType === "ROOM" ? roomId : undefined,
+      service_type: currentKotServiceType,
+      table_no: currentKotServiceType === "TABLE" ? tableNo.trim() : undefined,
+      booking_id: currentKotServiceType === "ROOM" ? bookingId : undefined,
+      room_id: currentKotServiceType === "ROOM" ? roomId : undefined,
       notes: notes.trim() || undefined,
-      items,
+      items: items.map((item) => ({
+        product_id: item.product_id,
+        qty: Number(item.qty) || 0,
+        rate_at_time: Number(item.rate_at_time ?? 0) || 0,
+        remarks: item.remarks || null,
+        status: item.status || "Normal",
+      })),
     };
 
     try {
@@ -334,7 +335,7 @@ const KotEntryScreen: React.FC = () => {
       const res = await createKot(payload);
 
       const successMessage =
-        serviceType === "ROOM"
+        currentKotServiceType === "ROOM"
           ? `Room service KOT created.\nCharges are posted to the guest folio.\nKOT No: ${res.kot.kot_no}`
           : `KOT created successfully.\nKOT No: ${res.kot.kot_no}`;
 
@@ -354,10 +355,7 @@ const KotEntryScreen: React.FC = () => {
         },
       ]);
     } catch (e: any) {
-      Alert.alert(
-        "Error",
-        e?.response?.data?.message || e?.message || "Failed to create KOT"
-      );
+      Alert.alert("Error", getApiErrorMessage(e, "Failed to create KOT"));
     } finally {
       setLoading(false);
     }
@@ -369,18 +367,24 @@ const KotEntryScreen: React.FC = () => {
     try {
       setLoading(true);
       await updateKot(kotId, {
-        table_no: serviceType === "TABLE" ? tableNo.trim() : undefined,
+        service_type: currentKotServiceType,
+        table_no: currentKotServiceType === "TABLE" ? tableNo.trim() : undefined,
+        booking_id: currentKotServiceType === "ROOM" ? bookingId : undefined,
+        room_id: currentKotServiceType === "ROOM" ? roomId : undefined,
         notes: notes.trim() || undefined,
-        items,
+        items: items.map((item) => ({
+          product_id: item.product_id,
+          qty: Number(item.qty) || 0,
+          rate_at_time: Number(item.rate_at_time ?? 0) || 0,
+          remarks: item.remarks || null,
+          status: item.status || "Normal",
+        })),
       });
 
       Alert.alert("Success", "KOT updated successfully");
       await loadKot(kotId);
     } catch (e: any) {
-      Alert.alert(
-        "Error",
-        e?.response?.data?.message || e?.message || "Failed to update KOT"
-      );
+      Alert.alert("Error", getApiErrorMessage(e, "Failed to update KOT"));
     } finally {
       setLoading(false);
     }
@@ -401,10 +405,7 @@ const KotEntryScreen: React.FC = () => {
             Alert.alert("Success", "KOT cancelled");
             await loadKot(kotId);
           } catch (e: any) {
-            Alert.alert(
-              "Error",
-              e?.response?.data?.message || e?.message || "Failed to cancel KOT"
-            );
+            Alert.alert("Error", getApiErrorMessage(e, "Failed to cancel KOT"));
           } finally {
             setLoading(false);
           }
@@ -436,10 +437,7 @@ const KotEntryScreen: React.FC = () => {
                 },
               ]);
             } catch (e: any) {
-              Alert.alert(
-                "Error",
-                e?.response?.data?.message || e?.message || "Failed to delete KOT"
-              );
+              Alert.alert("Error", getApiErrorMessage(e, "Failed to delete KOT"));
             } finally {
               setLoading(false);
             }
@@ -455,20 +453,11 @@ const KotEntryScreen: React.FC = () => {
 
   const guestName =
     detail?.kot?.first_name || detail?.kot?.last_name
-      ? `${detail?.kot?.first_name || ""} ${
-          detail?.kot?.last_name || ""
-        }`.trim()
+      ? `${detail?.kot?.first_name || ""} ${detail?.kot?.last_name || ""}`.trim()
       : "";
 
-  const isRoomKot = detail?.kot?.service_type === "ROOM";
-  const canEditOrCancel =
-    !!detail &&
-    detail.kot.status === "Open" &&
-    detail.kot.service_type === "TABLE";
-  const fieldsDisabled = isView && !canEditOrCancel;
-
   return (
-    <View style={[styles.wrapper, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.wrapper, { backgroundColor: colors.background }]}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={{ paddingBottom: 32 }}
@@ -483,89 +472,63 @@ const KotEntryScreen: React.FC = () => {
           style={[
             styles.summaryCard,
             {
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.border,
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
             },
           ]}
         >
           <View style={styles.summaryTopRow}>
             <View>
-              <Text
-                style={[
-                  styles.summaryLabel,
-                  { color: theme.colors.textSecondary },
-                ]}
-              >
+              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
                 Status
               </Text>
-              <Text
-                style={[styles.summaryValue, { color: theme.colors.primary }]}
-              >
-                {detail?.kot?.status || "Open"}
+              <Text style={[styles.summaryValue, { color: colors.primary }]}>
+                {currentKotStatus}
               </Text>
             </View>
 
             <View>
-              <Text
-                style={[
-                  styles.summaryLabel,
-                  { color: theme.colors.textSecondary },
-                ]}
-              >
+              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
                 Total
               </Text>
-              <Text
-                style={[styles.summaryValue, { color: theme.colors.text }]}
-              >
+              <Text style={[styles.summaryValue, { color: colors.text }]}>
                 ₹ {totalAmount.toFixed(2)}
               </Text>
             </View>
           </View>
 
           {kotNo ? (
-            <Text
-              style={[styles.metaText, { color: theme.colors.textSecondary }]}
-            >
+            <Text style={[styles.metaText, { color: colors.textSecondary }]}>
               KOT No: {kotNo}
             </Text>
           ) : null}
 
           {isView && detail?.kot?.kot_datetime ? (
-            <Text
-              style={[styles.metaText, { color: theme.colors.textSecondary }]}
-            >
+            <Text style={[styles.metaText, { color: colors.textSecondary }]}>
               Date: {formatDateTime(detail.kot.kot_datetime)}
             </Text>
           ) : null}
 
           {guestName ? (
-            <Text
-              style={[styles.metaText, { color: theme.colors.textSecondary }]}
-            >
+            <Text style={[styles.metaText, { color: colors.textSecondary }]}>
               Guest: {guestName}
             </Text>
           ) : null}
 
           {detail?.kot?.room_no ? (
-            <Text
-              style={[styles.metaText, { color: theme.colors.textSecondary }]}
-            >
+            <Text style={[styles.metaText, { color: colors.textSecondary }]}>
               Room: {detail.kot.room_no}
             </Text>
           ) : null}
 
           {detail?.kot?.folio_no ? (
-            <Text
-              style={[styles.metaText, { color: theme.colors.textSecondary }]}
-            >
+            <Text style={[styles.metaText, { color: colors.textSecondary }]}>
               Folio: {detail.kot.folio_no}
             </Text>
           ) : null}
 
           {isRoomKot ? (
-            <Text
-              style={[styles.metaText, { color: theme.colors.textSecondary }]}
-            >
+            <Text style={[styles.metaText, { color: colors.textSecondary }]}>
               This room-service KOT is posted to folio and is read-only here.
             </Text>
           ) : null}
@@ -575,13 +538,13 @@ const KotEntryScreen: React.FC = () => {
 
         <AppInput
           label="Service Type"
-          value={serviceType}
+          value={currentKotServiceType}
           editable={false}
           onPress={!isView ? () => setServiceTypePickerVisible(true) : undefined}
           placeholder="Select service type"
         />
 
-        {serviceType === "TABLE" ? (
+        {currentKotServiceType === "TABLE" ? (
           <>
             <AppInput
               label="Table No"
@@ -596,7 +559,7 @@ const KotEntryScreen: React.FC = () => {
               editable={!fieldsDisabled}
             />
             {orderErrors.table ? (
-              <Text style={{ color: theme.colors.error, fontSize: 12 }}>
+              <Text style={{ color: colors.error, fontSize: 12 }}>
                 {orderErrors.table}
               </Text>
             ) : null}
@@ -611,7 +574,7 @@ const KotEntryScreen: React.FC = () => {
               placeholder="Select checked-in room"
             />
             {orderErrors.room ? (
-              <Text style={{ color: theme.colors.error, fontSize: 12 }}>
+              <Text style={{ color: colors.error, fontSize: 12 }}>
                 {orderErrors.room}
               </Text>
             ) : null}
@@ -634,20 +597,15 @@ const KotEntryScreen: React.FC = () => {
             style={[
               styles.emptyCard,
               {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.border,
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
               },
             ]}
           >
-            <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>
               No items added yet
             </Text>
-            <Text
-              style={[
-                styles.emptySubtitle,
-                { color: theme.colors.textSecondary },
-              ]}
-            >
+            <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
               Add one or more products to create this KOT
             </Text>
           </View>
@@ -656,7 +614,7 @@ const KotEntryScreen: React.FC = () => {
         {orderErrors.items ? (
           <Text
             style={{
-              color: theme.colors.error,
+              color: colors.error,
               fontSize: 12,
               marginBottom: 4,
             }}
@@ -667,7 +625,7 @@ const KotEntryScreen: React.FC = () => {
 
         {items.map((item, index) => (
           <KotItemRow
-            key={`${index}-${item.product_id}`}
+            key={`${index}-${item.product_id}-${item.qty}-${item.rate_at_time}`}
             index={index}
             value={item}
             productName={getProductName(item.product_id, index)}
@@ -717,18 +675,18 @@ const KotEntryScreen: React.FC = () => {
             style={[
               styles.readOnlyCard,
               {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.border,
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
               },
             ]}
           >
-            <Text style={[styles.readOnlyTitle, { color: theme.colors.text }]}>
+            <Text style={[styles.readOnlyTitle, { color: colors.text }]}>
               Read-only KOT
             </Text>
             <Text
               style={[
                 styles.readOnlySubtitle,
-                { color: theme.colors.textSecondary },
+                { color: colors.textSecondary },
               ]}
             >
               {isRoomKot

@@ -17,7 +17,7 @@ type Props = {
 };
 
 const sanitizeDecimalInput = (text: string) => {
-  const cleaned = text.replace(/[^0-9.]/g, "");
+  const cleaned = String(text || "").replace(/[^0-9.]/g, "");
   const firstDotIndex = cleaned.indexOf(".");
 
   if (firstDotIndex === -1) return cleaned;
@@ -42,13 +42,16 @@ const KotItemRow: React.FC<Props> = ({
   disabled = false,
 }) => {
   const { theme } = useThemeStore();
+  const colors = theme.colors;
 
   const [qtyError, setQtyError] = useState("");
   const [rateError, setRateError] = useState("");
+  const [productError, setProductError] = useState("");
 
   const [qtyText, setQtyText] = useState(
     value.qty !== undefined && value.qty !== null ? String(value.qty) : ""
   );
+
   const [rateText, setRateText] = useState(
     value.rate_at_time !== undefined && value.rate_at_time !== null
       ? String(value.rate_at_time)
@@ -71,18 +74,19 @@ const KotItemRow: React.FC<Props> = ({
 
   const amount = useMemo(() => {
     const qty = Number(value.qty) || 0;
-    const rate =
-      value.rate_at_time != null ? Number(value.rate_at_time) || 0 : 0;
+    const rate = Number(value.rate_at_time ?? 0) || 0;
     return qty * rate;
   }, [value.qty, value.rate_at_time]);
 
   useEffect(() => {
     const q = Number(value.qty || 0);
     const r = Number(value.rate_at_time ?? 0);
+    const p = Number(value.product_id || 0);
 
+    setProductError(p <= 0 ? "Please select a product" : "");
     setQtyError(q <= 0 ? "Qty must be greater than 0" : "");
     setRateError(r < 0 ? "Rate cannot be negative" : "");
-  }, [value.qty, value.rate_at_time]);
+  }, [value.product_id, value.qty, value.rate_at_time]);
 
   const handleQtyChange = (text: string) => {
     const cleaned = sanitizeDecimalInput(text);
@@ -116,33 +120,33 @@ const KotItemRow: React.FC<Props> = ({
       style={[
         styles.container,
         {
-          borderColor: theme.colors.border,
-          backgroundColor: theme.colors.surface,
-          shadowColor: theme.colors.text,
+          borderColor: colors.border,
+          backgroundColor: colors.surface,
+          shadowColor: colors.text,
           opacity: disabled ? 0.8 : 1,
         },
       ]}
     >
       <View style={styles.headerRow}>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.indexText, { color: theme.colors.text }]}>
+        <View style={styles.headerLeft}>
+          <Text style={[styles.indexText, { color: colors.text }]}>
             Item #{index + 1}
           </Text>
-          <Text
-            style={[styles.helperText, { color: theme.colors.textSecondary }]}
-          >
+          <Text style={[styles.helperText, { color: colors.textSecondary }]}>
             Select product and enter quantity
           </Text>
         </View>
 
-        {!disabled && (
-          <AppButton
-            title="Remove"
-            variant="outline"
-            size="small"
-            onPress={onRemove}
-          />
-        )}
+        {!disabled ? (
+          <View style={styles.removeBtnWrap}>
+            <AppButton
+              title="Remove"
+              variant="outline"
+              size="small"
+              onPress={onRemove}
+            />
+          </View>
+        ) : null}
       </View>
 
       <AppInput
@@ -152,9 +156,14 @@ const KotItemRow: React.FC<Props> = ({
         editable={false}
         onPress={disabled ? undefined : onSelectProduct}
       />
+      {productError ? (
+        <Text style={[styles.errorText, { color: colors.error }]}>
+          {productError}
+        </Text>
+      ) : null}
 
       <View style={styles.inlineRow}>
-        <View style={styles.inlineCol}>
+        <View style={[styles.inlineCol, styles.inlineColLeft]}>
           <AppInput
             label="Qty"
             keyboardType="decimal-pad"
@@ -164,7 +173,7 @@ const KotItemRow: React.FC<Props> = ({
             placeholder="0"
           />
           {qtyError ? (
-            <Text style={[styles.errorText, { color: theme.colors.error }]}>
+            <Text style={[styles.errorText, { color: colors.error }]}>
               {qtyError}
             </Text>
           ) : null}
@@ -180,7 +189,7 @@ const KotItemRow: React.FC<Props> = ({
             placeholder="0"
           />
           {rateError ? (
-            <Text style={[styles.errorText, { color: theme.colors.error }]}>
+            <Text style={[styles.errorText, { color: colors.error }]}>
               {rateError}
             </Text>
           ) : null}
@@ -191,17 +200,15 @@ const KotItemRow: React.FC<Props> = ({
         style={[
           styles.amountCard,
           {
-            backgroundColor: theme.colors.background,
-            borderColor: theme.colors.border,
+            backgroundColor: colors.background,
+            borderColor: colors.border,
           },
         ]}
       >
-        <Text
-          style={[styles.amountLabel, { color: theme.colors.textSecondary }]}
-        >
+        <Text style={[styles.amountLabel, { color: colors.textSecondary }]}>
           Amount
         </Text>
-        <Text style={[styles.amountValue, { color: theme.colors.primary }]}>
+        <Text style={[styles.amountValue, { color: colors.primary }]}>
           ₹ {formatNumber(amount, 2)}
         </Text>
       </View>
@@ -234,7 +241,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "flex-start",
     marginBottom: 8,
-    gap: 12,
+  },
+  headerLeft: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  removeBtnWrap: {
+    marginLeft: 12,
   },
   indexText: {
     fontSize: 15,
@@ -246,10 +259,13 @@ const styles = StyleSheet.create({
   },
   inlineRow: {
     flexDirection: "row",
-    gap: 10,
+    marginTop: 2,
   },
   inlineCol: {
     flex: 1,
+  },
+  inlineColLeft: {
+    marginRight: 10,
   },
   amountCard: {
     borderWidth: 1,
@@ -269,6 +285,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 11,
     marginTop: 4,
+    marginBottom: 2,
   },
 });
 

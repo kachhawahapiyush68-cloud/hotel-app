@@ -1,9 +1,7 @@
-// ============================================================
-// src/modules/bill/types.ts
-// ============================================================
-
 export type BackendPaymentStatus = "Unpaid" | "Partial" | "Paid" | "Refund";
 export type BillPaymentStatus = BackendPaymentStatus;
+export type PaymentMode = "CASH" | "BANK" | "UPI" | "CARD";
+export type DisplayCategory = "CHARGE" | "DISCOUNT" | "PAYMENT";
 
 export interface Bill {
   bill_id?: number;
@@ -20,12 +18,11 @@ export interface Bill {
   tax_amount?: number;
   round_off?: number;
   net_amount?: number;
-  payment_status?: string;
+  payment_status?: BillPaymentStatus | string;
   created_by?: number | null;
   is_deleted?: number;
   created_at?: string;
   updated_at?: string;
-
   first_name?: string | null;
   last_name?: string | null;
   room_no?: string | null;
@@ -36,7 +33,7 @@ export interface Bill {
 export interface BillItem {
   bill_item_id?: number;
   bill_id: number;
-  source_type: "KOT" | "ROOM_POSTING" | "MANUAL" | string;
+  source_type: "KOT" | "ROOM_POSTING" | "MANUAL" | "PAYMENT" | "REFUND" | string;
   source_ref_id?: number | null;
   product_id: number;
   description?: string | null;
@@ -44,11 +41,10 @@ export interface BillItem {
   rate: number;
   amount: number;
   tax_amount?: number;
-  display_category?: "CHARGE" | "DISCOUNT" | "PAYMENT";
+  display_category?: DisplayCategory;
   is_deleted?: number;
   created_at?: string;
   updated_at?: string;
-
   product_name?: string;
   product_code?: string | null;
   unit?: string | null;
@@ -74,7 +70,9 @@ export interface BillDetailResponse {
 }
 
 export interface BillListParams {
+  bill_type?: string;
   billtype?: string;
+  company_id?: number;
   companyid?: number;
 }
 
@@ -92,7 +90,7 @@ export interface CreateBillPayload {
   tax_amount?: number;
   round_off?: number;
   net_amount?: number;
-  payment_status?: string;
+  payment_status?: BillPaymentStatus | string;
 }
 
 export interface CreateBillFromKotPayload {
@@ -123,7 +121,7 @@ export interface UpdateBillPayload {
 
 export interface MarkPaidPayload {
   amount: number;
-  payment_mode: "CASH" | "BANK" | "UPI" | "CARD";
+  payment_mode: PaymentMode;
   company_id?: number;
 }
 
@@ -139,7 +137,7 @@ export interface MarkPaidResponse {
 }
 
 export interface MarkRefundPayload {
-  refund_mode: "CASH" | "BANK" | "UPI" | "CARD";
+  refund_mode: PaymentMode;
   company_id?: number;
 }
 
@@ -178,12 +176,11 @@ export function normalizePaymentStatus(
     return s as BackendPaymentStatus;
   }
 
-  switch (s.toUpperCase()) {
+  switch (s.toUpperCase().replace(/[\s_-]+/g, "")) {
     case "UNPAID":
       return "Unpaid";
     case "PARTIAL":
     case "PARTIALLYPAID":
-    case "PARTIALLY_PAID":
       return "Partial";
     case "PAID":
       return "Paid";
@@ -191,6 +188,23 @@ export function normalizePaymentStatus(
       return "Refund";
     default:
       return "Unpaid";
+  }
+}
+
+export function normalizePaymentMode(mode?: string | null): PaymentMode {
+  const v = String(mode || "").trim().toUpperCase();
+
+  switch (v) {
+    case "CASH":
+      return "CASH";
+    case "BANK":
+      return "BANK";
+    case "UPI":
+      return "UPI";
+    case "CARD":
+      return "CARD";
+    default:
+      throw new Error("Invalid payment mode");
   }
 }
 
@@ -204,13 +218,13 @@ export function getPaymentStatusColor(status?: string | null): string {
   return PAYMENT_STATUS_COLOR[s] ?? "#D64545";
 }
 
-export const DISPLAY_CATEGORY_LABEL: Record<string, string> = {
+export const DISPLAY_CATEGORY_LABEL: Record<DisplayCategory, string> = {
   CHARGE: "Charge",
   DISCOUNT: "Discount",
   PAYMENT: "Payment",
 };
 
-export const DISPLAY_CATEGORY_COLOR: Record<string, string> = {
+export const DISPLAY_CATEGORY_COLOR: Record<DisplayCategory, string> = {
   CHARGE: "#1E9E5A",
   DISCOUNT: "#D98E04",
   PAYMENT: "#2563EB",
@@ -223,6 +237,7 @@ export function getChargeTypeLabel(chargeType?: string | null): string {
 
   switch (ct) {
     case "ROOM_RENT":
+    case "ROOM CHARGE":
     case "ROOM_CHARGE":
       return "Room Rent";
     case "LAUNDRY":
@@ -246,6 +261,8 @@ export function getChargeTypeLabel(chargeType?: string | null): string {
       return "Advance Payment";
     case "PAYMENT":
       return "Payment";
+    case "REFUND":
+      return "Refund";
     case "CASH":
       return "Cash Payment";
     case "BANK":
@@ -254,15 +271,14 @@ export function getChargeTypeLabel(chargeType?: string | null): string {
       return "UPI Payment";
     case "CARD":
       return "Card Payment";
+    case "MANUAL":
+      return "Manual Entry";
     default:
       return chargeType;
   }
 }
 
-export const PAYMENT_MODE_OPTIONS: {
-  label: string;
-  value: "CASH" | "BANK" | "UPI" | "CARD";
-}[] = [
+export const PAYMENT_MODE_OPTIONS: { label: string; value: PaymentMode }[] = [
   { label: "Cash", value: "CASH" },
   { label: "Bank Transfer", value: "BANK" },
   { label: "UPI", value: "UPI" },

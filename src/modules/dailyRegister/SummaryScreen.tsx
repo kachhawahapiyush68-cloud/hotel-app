@@ -11,18 +11,19 @@ import {
   View,
   StyleSheet,
   RefreshControl,
+  Text,
 } from "react-native";
 
-import { DailyRegisterResponse, displayDate } from "./api";
+import { DailyRegisterResponse, displayDate, fmtAlways } from "./api";
 import { SummaryBlock } from "./components/SummaryBlock";
 import { useThemeStore } from "../../store/themeStore";
 
 // ── Props ─────────────────────────────────────────────────────
 interface Props {
-  data:       DailyRegisterResponse;
-  date:       string;
+  data: DailyRegisterResponse;
+  date: string;
   refreshing: boolean;
-  onRefresh:  () => void;
+  onRefresh: () => void;
 }
 
 // ── Screen ────────────────────────────────────────────────────
@@ -33,7 +34,11 @@ export const SummaryScreen: React.FC<Props> = ({
   onRefresh,
 }) => {
   const { theme } = useThemeStore();
-  const colors    = theme.colors;
+  const colors = theme.colors;
+
+  const summary = data?.summary;
+  const hasBankOpening =
+    typeof summary?.bank_op_bal === "number" && !Number.isNaN(summary.bank_op_bal);
 
   return (
     <ScrollView
@@ -49,8 +54,67 @@ export const SummaryScreen: React.FC<Props> = ({
         />
       }
     >
+      {/* Top mini stats */}
+      <View style={styles.statsRow}>
+        <View
+          style={[
+            styles.statCard,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+            Cash Opening
+          </Text>
+          <Text style={[styles.statValue, { color: colors.text }]}>
+            ₹ {fmtAlways(summary?.op_bal)}
+          </Text>
+        </View>
+
+        <View
+          style={[
+            styles.statCard,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+            Expenses
+          </Text>
+          <Text style={[styles.statValue, { color: colors.danger }]}>
+            ₹ {fmtAlways(summary?.exp)}
+          </Text>
+        </View>
+      </View>
+
+      {hasBankOpening && (
+        <View style={styles.statsRowSingle}>
+          <View
+            style={[
+              styles.statCardWide,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+              Bank Opening
+            </Text>
+            <Text style={[styles.statValue, { color: colors.primary }]}>
+              ₹ {fmtAlways(summary?.bank_op_bal)}
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* Main summary block */}
       <SummaryBlock
-        summary={data.summary}
+        summary={summary}
         date={displayDate(date)}
       />
 
@@ -66,7 +130,39 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    paddingTop:    16,
+    paddingTop: 16,
     paddingBottom: 16,
+  },
+  statsRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginHorizontal: 16,
+    marginBottom: 12,
+  },
+  statsRowSingle: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+  },
+  statCard: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  statCardWide: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginBottom: 6,
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: "700",
   },
 });

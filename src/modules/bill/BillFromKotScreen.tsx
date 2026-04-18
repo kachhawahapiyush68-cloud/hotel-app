@@ -1,8 +1,4 @@
-// ============================================================
-// src/modules/bill/BillFromKotScreen.tsx
-// ============================================================
-
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   ScrollView,
@@ -31,6 +27,15 @@ const BILL_TYPE_OPTIONS: SelectItem[] = [
 
 type RouteProps = RouteProp<RootStackParamList, "BillFromKot">;
 
+const getApiErrorMessage = (e: any, fallback: string) => {
+  return (
+    e?.response?.data?.message ||
+    e?.response?.data?.error ||
+    e?.message ||
+    fallback
+  );
+};
+
 const BillFromKotScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProps>();
@@ -38,66 +43,65 @@ const BillFromKotScreen: React.FC = () => {
   const colors = theme.colors;
 
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [kots, setKots] = useState<Kot[]>([]);
   const [selectedKotIds, setSelectedKotIds] = useState<number[]>(
-    route.params?.kotIds ?? []
+    Array.isArray(route.params?.kotIds)
+      ? route.params.kotIds.map(Number).filter((x) => Number.isInteger(x) && x > 0)
+      : []
   );
   const [billType, setBillType] = useState("Restaurant");
   const [billTypeModal, setBillTypeModal] = useState(false);
 
-  useEffect(() => {
-    loadOpenKots();
-  }, []);
-
-  const loadOpenKots = async () => {
+  const loadOpenKots = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetchKotList("Open");
       setKots(Array.isArray(res) ? res : []);
     } catch (e: any) {
-      Alert.alert(
-        "Error",
-        e?.response?.data?.message || e?.message || "Failed to load KOTs"
-      );
+      Alert.alert("Error", getApiErrorMessage(e, "Failed to load KOTs"));
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const toggleKot = (kotId?: number) => {
-    if (!kotId) return;
+  useEffect(() => {
+    loadOpenKots();
+  }, [loadOpenKots]);
 
-    setSelectedKotIds((prev) =>
-      prev.includes(kotId)
-        ? prev.filter((id) => id !== kotId)
-        : [...prev, kotId]
-    );
-  };
+  useEffect(() => {
+    if (Array.isArray(route.params?.kotIds) && route.params.kotIds.length > 0) {
+      setSelectedKotIds(
+        route.params.kotIds.map(Number).filter((x) => Number.isInteger(x) && x > 0)
+      );
+    }
+  }, [route.params?.kotIds]);
 
   const selectedKots = useMemo(
-    () => kots.filter((kot) => kot.kot_id && selectedKotIds.includes(kot.kot_id)),
+    () => kots.filter((kot) => kot.kot_id && selectedKotIds.includes(Number(kot.kot_id))),
     [kots, selectedKotIds]
   );
 
   const selectedTotal = useMemo(
     () =>
       selectedKots.reduce(
-        (sum, kot) => sum + (Number(kot.total_amount) || 0),
+        (sum, kot) => sum + (Number((kot as any).total_amount) || 0),
         0
       ),
     [selectedKots]
   );
 
-  const hasMixedServiceTypes = useMemo(() => {
-    const serviceTypes = [
+  const selectedServiceTypes = useMemo(() => {
+    return [
       ...new Set(
         selectedKots
           .map((kot) => String(kot.service_type || "").trim().toUpperCase())
           .filter(Boolean)
       ),
     ];
-    return serviceTypes.length > 1;
   }, [selectedKots]);
+
+  const hasMixedServiceTypes = selectedServiceTypes.length > 1;
 
   const selectedTableNos = useMemo(() => {
     return [
@@ -113,6 +117,7 @@ const BillFromKotScreen: React.FC = () => {
     const tableKots = selectedKots.filter(
       (kot) => String(kot.service_type || "").trim().toUpperCase() === "TABLE"
     );
+
     const tableNos = [
       ...new Set(
         tableKots
@@ -120,8 +125,52 @@ const BillFromKotScreen: React.FC = () => {
           .filter(Boolean)
       ),
     ];
+
     return tableNos.length > 1;
   }, [selectedKots]);
+
+  const toggleKot = (kot?: Kot) => {
+    const kotId = Number(kot?.kot_id || 0);
+    if (!kotId) return;
+
+    const serviceType = String(kot?.service_type || "").trim().toUpperCase();
+    const tableNo = String(kot?.table_no || "").trim().toUpperCase();
+
+    if (serviceType !== "TABLE") {
+      Alert.alert(
+        "Not allowed",
+        "Only TABLE KOTs can be selected here. ROOM KOT must be billed from booking."
+      );
+      return;
+    }
+
+    setSelectedKotIds((prev) => {
+      const exists = prev.includes(kotId);
+      if (exists) return prev.filter((id) => id !== kotId);
+
+      const currentlySelected = kots.filter(
+        (x) => x.kot_id && prev.includes(Number(x.kot_id))
+      );
+
+      const selectedTableNos = [
+        ...new Set(
+          currentlySelected
+            .map((x) => String(x.table_no || "").trim().toUpperCase())
+            .filter(Boolean)
+        ),
+      ];
+
+      if (selectedTableNos.length > 0 && tableNo && !selectedTableNos.includes(tableNo)) {
+        Alert.alert(
+          "Not allowed",
+          "Selected TABLE KOTs must belong to the same table."
+        );
+        return prev;
+      }
+
+      return [...prev, kotId];
+    });
+  };
 
   const handleGenerateBill = async () => {
     if (selectedKotIds.length === 0) {
@@ -158,12 +207,14 @@ const BillFromKotScreen: React.FC = () => {
     }
 
     try {
-      setLoading(true);
+      setSubmitting(true);
 
       const res = await createBillFromKot({
         kot_ids: selectedKotIds,
-        bill_type: "Restaurant",
+        bill_type: billType,
       });
+
+      const createdBillId = Number(res?.bill?.bill_id || 0);
 
       Alert.alert(
         "Success",
@@ -171,27 +222,29 @@ const BillFromKotScreen: React.FC = () => {
           res.summary?.net_amount ?? res.bill.net_amount ?? 0,
           2
         )}`,
-        [
-          {
-            text: "View Bill",
-            onPress: () =>
-              navigation.replace("BillDetail", {
-                billId: res.bill.bill_id,
-              }),
-          },
-          {
-            text: "Back",
-            onPress: () => navigation.goBack(),
-          },
-        ]
+        createdBillId > 0
+          ? [
+              {
+                text: "View Bill",
+                onPress: () =>
+                  navigation.replace("BillDetail", {
+                    billId: createdBillId,
+                  }),
+              },
+              {
+                text: "Back",
+                onPress: () => navigation.goBack(),
+              },
+            ]
+          : [{ text: "OK", onPress: () => navigation.goBack() }]
       );
     } catch (e: any) {
       Alert.alert(
         "Error",
-        e?.response?.data?.message || e?.message || "Failed to generate bill"
+        getApiErrorMessage(e, "Failed to generate bill")
       );
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -254,8 +307,8 @@ const BillFromKotScreen: React.FC = () => {
           </View>
         ) : (
           kots.map((kot) => {
-            const selected =
-              !!kot.kot_id && selectedKotIds.includes(kot.kot_id);
+            const kotId = Number(kot.kot_id || 0);
+            const selected = kotId > 0 && selectedKotIds.includes(kotId);
 
             const guestName = [kot.first_name, kot.last_name]
               .filter(Boolean)
@@ -267,12 +320,13 @@ const BillFromKotScreen: React.FC = () => {
               .toUpperCase();
 
             const isRoomKot = serviceType === "ROOM";
+            const isTableKot = serviceType === "TABLE";
 
             return (
               <TouchableOpacity
-                key={kot.kot_id}
+                key={String(kot.kot_id)}
                 activeOpacity={0.85}
-                onPress={() => toggleKot(kot.kot_id)}
+                onPress={() => toggleKot(kot)}
                 style={[
                   styles.kotCard,
                   {
@@ -280,13 +334,13 @@ const BillFromKotScreen: React.FC = () => {
                       ? `${colors.primary}12`
                       : colors.surface,
                     borderColor: selected ? colors.primary : colors.border,
-                    opacity: isRoomKot ? 0.75 : 1,
+                    opacity: isTableKot ? 1 : 0.75,
                   },
                 ]}
               >
                 <View style={styles.kotTopRow}>
                   <Text style={[styles.kotNo, { color: colors.text }]}>
-                    {kot.kot_no || `KOT #${kot.kot_id}`}
+                    {(kot as any).kot_no || `KOT #${kot.kot_id}`}
                   </Text>
                   <Text
                     style={[
@@ -302,9 +356,9 @@ const BillFromKotScreen: React.FC = () => {
                   </Text>
                 </View>
 
-                {kot.kot_datetime ? (
+                {(kot as any).kot_datetime ? (
                   <Text style={[styles.kotMeta, { color: colors.textSecondary }]}>
-                    {formatDateTime(kot.kot_datetime)}
+                    {formatDateTime((kot as any).kot_datetime)}
                   </Text>
                 ) : null}
 
@@ -312,15 +366,15 @@ const BillFromKotScreen: React.FC = () => {
                   Service: {kot.service_type || "—"}
                 </Text>
 
-                {kot.room_no ? (
+                {(kot as any).room_no ? (
                   <Text style={[styles.kotMeta, { color: colors.textSecondary }]}>
-                    Room: {kot.room_no}
+                    Room: {(kot as any).room_no}
                   </Text>
                 ) : null}
 
-                {kot.table_no ? (
+                {(kot as any).table_no ? (
                   <Text style={[styles.kotMeta, { color: colors.textSecondary }]}>
-                    Table: {kot.table_no}
+                    Table: {(kot as any).table_no}
                   </Text>
                 ) : null}
 
@@ -330,9 +384,9 @@ const BillFromKotScreen: React.FC = () => {
                   </Text>
                 ) : null}
 
-                {(Number(kot.total_amount) || 0) > 0 ? (
+                {(Number((kot as any).total_amount) || 0) > 0 ? (
                   <Text style={[styles.kotAmount, { color: colors.primary }]}>
-                    ₹ {formatNumber(Number(kot.total_amount), 2)}
+                    ₹ {formatNumber(Number((kot as any).total_amount), 2)}
                   </Text>
                 ) : null}
               </TouchableOpacity>
@@ -358,10 +412,10 @@ const BillFromKotScreen: React.FC = () => {
         )}
 
         <AppButton
-          title={loading ? "Generating..." : "Generate Bill"}
+          title={submitting ? "Generating..." : "Generate Bill"}
           onPress={handleGenerateBill}
-          loading={loading}
-          disabled={loading || selectedKotIds.length === 0}
+          loading={submitting}
+          disabled={loading || submitting || selectedKotIds.length === 0}
           style={{ marginTop: 8 }}
         />
       </ScrollView>

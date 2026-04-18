@@ -1,18 +1,22 @@
-// ============================================================
-// src/modules/bill/store.ts
-// ============================================================
-
 import { create } from "zustand";
-import type { Bill } from "./types";
+import type { Bill, BillDetailResponse } from "./types";
 
 type BillStore = {
   selectedBill: Bill | null;
+  selectedBillDetail: BillDetailResponse | null;
   setSelectedBill: (bill: Bill | null) => void;
+  setSelectedBillDetail: (detail: BillDetailResponse | null) => void;
   clearSelectedBill: () => void;
 };
 
 export const useBillStore = create<BillStore>()((set) => ({
   selectedBill: null,
+  selectedBillDetail: null,
   setSelectedBill: (bill) => set({ selectedBill: bill }),
-  clearSelectedBill: () => set({ selectedBill: null }),
+  setSelectedBillDetail: (detail) => set({ selectedBillDetail: detail }),
+  clearSelectedBill: () =>
+    set({
+      selectedBill: null,
+      selectedBillDetail: null,
+    }),
 }));

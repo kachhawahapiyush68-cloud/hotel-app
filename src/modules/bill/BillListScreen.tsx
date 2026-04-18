@@ -1,8 +1,4 @@
-// ============================================================
-// src/modules/bill/BillListScreen.tsx
-// ============================================================
-
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   FlatList,
@@ -55,6 +51,23 @@ const PILL_LABEL: Record<PaymentFilter, string> = {
   Refund: "Refund",
 };
 
+function getApiErrorMessage(e: any, fallback: string) {
+  return (
+    e?.response?.data?.message ||
+    e?.response?.data?.error ||
+    e?.message ||
+    fallback
+  );
+}
+
+function normalizeBillTypeFilter(value?: string | null): BillTypeFilter {
+  const v = String(value || "").trim().toUpperCase();
+
+  if (v === "RESTAURANT") return "Restaurant";
+  if (v === "ROOM") return "Room";
+  return "All";
+}
+
 const BillListScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProps>();
@@ -67,55 +80,81 @@ const BillListScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [typeFilter, setTypeFilter] = useState<BillTypeFilter>("All");
   const [payFilter, setPayFilter] = useState<PaymentFilter>("All");
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
-    if (route.params?.bill_type) {
-      setTypeFilter(route.params.bill_type as BillTypeFilter);
-    }
+    const nextType = normalizeBillTypeFilter(route.params?.bill_type);
+    setTypeFilter(nextType);
 
     if (route.params?.payment_status) {
-      const ps = normalizePaymentStatus(route.params.payment_status as string);
+      const ps = normalizePaymentStatus(String(route.params.payment_status));
       if (PAYMENT_FILTERS.includes(ps as PaymentFilter)) {
         setPayFilter(ps as PaymentFilter);
+      } else {
+        setPayFilter("All");
       }
     }
   }, [route.params?.bill_type, route.params?.payment_status]);
 
-  const load = useCallback(async () => {
-    try {
-      setLoading(true);
+  const load = useCallback(
+    async (isPullRefresh = false) => {
+      try {
+        if (isPullRefresh) {
+          setRefreshing(true);
+        } else {
+          setLoading(true);
+        }
 
-      const billType = typeFilter === "All" ? undefined : typeFilter;
-      const res = await fetchBillList(billType);
+        setLoadError("");
 
-      let rows = Array.isArray(res) ? res : [];
-      if (payFilter !== "All") {
-        rows = rows.filter(
-          (b) => normalizePaymentStatus(b.payment_status) === payFilter
-        );
+        const billType = typeFilter === "All" ? undefined : typeFilter;
+        const res = await fetchBillList(billType);
+
+        let rows = Array.isArray(res) ? res : [];
+
+        if (payFilter !== "All") {
+          rows = rows.filter(
+            (b) => normalizePaymentStatus(b.payment_status) === payFilter
+          );
+        }
+
+        rows = rows.sort((a, b) => {
+          const aDate = new Date(a.bill_datetime || a.created_at || 0).getTime();
+          const bDate = new Date(b.bill_datetime || b.created_at || 0).getTime();
+          return bDate - aDate;
+        });
+
+        setData(rows);
+      } catch (e: any) {
+        setData([]);
+        setLoadError(getApiErrorMessage(e, "Failed to load bills"));
+
+        if (!isPullRefresh) {
+          Alert.alert("Error", getApiErrorMessage(e, "Failed to load bills"));
+        }
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-
-      setData(rows);
-    } catch (e: any) {
-      setData([]);
-      Alert.alert(
-        "Error",
-        e?.response?.data?.message || e?.message || "Failed to load bills"
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [typeFilter, payFilter]);
+    },
+    [typeFilter, payFilter]
+  );
 
   const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
+    await load(true);
   }, [load]);
 
   useEffect(() => {
-    if (isFocused) load();
+    if (isFocused) {
+      load(false);
+    }
   }, [isFocused, load]);
+
+  const subtitle = useMemo(() => {
+    const base = `${data.length} bill${data.length === 1 ? "" : "s"}`;
+    if (typeFilter === "All" && payFilter === "All") return base;
+    return `${base} • ${typeFilter} • ${PILL_LABEL[payFilter]}`;
+  }, [data.length, typeFilter, payFilter]);
 
   const renderItem = ({ item }: { item: Bill }) => {
     const status = normalizePaymentStatus(item.payment_status);
@@ -127,6 +166,8 @@ const BillListScreen: React.FC = () => {
       .join(" ")
       .trim();
 
+    const billId = Number(item.bill_id || 0);
+
     return (
       <TouchableOpacity
         activeOpacity={0.88}
@@ -134,15 +175,25 @@ const BillListScreen: React.FC = () => {
           styles.card,
           { backgroundColor: colors.surface, borderColor: colors.border },
         ]}
-        onPress={() => navigation.navigate("BillDetail", { billId: item.bill_id })}
+        onPress={() => {
+          if (!billId) {
+            Alert.alert("Invalid bill", "Bill id is missing.");
+            return;
+          }
+          navigation.navigate("BillDetail", { billId });
+        }}
       >
         <View style={styles.topRow}>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, paddingRight: 12 }}>
             <Text style={[styles.billNo, { color: colors.text }]}>
-              {item.bill_no}
+              {item.bill_no || `Bill #${billId}`}
             </Text>
             <Text style={[styles.dateText, { color: colors.textSecondary }]}>
-              {item.bill_datetime ? formatDateTime(item.bill_datetime) : "No date"}
+              {item.bill_datetime
+                ? formatDateTime(item.bill_datetime)
+                : item.created_at
+                ? formatDateTime(item.created_at)
+                : "No date"}
             </Text>
           </View>
 
@@ -154,7 +205,7 @@ const BillListScreen: React.FC = () => {
         </View>
 
         <Text style={[styles.metaText, { color: colors.textSecondary }]}>
-          Type: {item.bill_type}
+          Type: {item.bill_type || "—"}
         </Text>
 
         {item.room_no ? (
@@ -169,6 +220,12 @@ const BillListScreen: React.FC = () => {
           </Text>
         ) : null}
 
+        {item.reservation_no ? (
+          <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+            Booking: {item.reservation_no}
+          </Text>
+        ) : null}
+
         {guestName ? (
           <Text style={[styles.metaText, { color: colors.textSecondary }]}>
             Guest: {guestName}
@@ -176,19 +233,21 @@ const BillListScreen: React.FC = () => {
         ) : null}
 
         <Text style={[styles.netAmount, { color: colors.primary }]}>
-          ₹ {formatNumber(item.net_amount || 0, 2)}
+          ₹ {formatNumber(Number(item.net_amount || 0), 2)}
         </Text>
       </TouchableOpacity>
     );
   };
 
-  if (loading && !refreshing && data.length === 0) return <Loader />;
+  if (loading && !refreshing && data.length === 0) {
+    return <Loader />;
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <SectionTitle
         title="Bills"
-        subtitle={`${data.length} bill${data.length === 1 ? "" : "s"}`}
+        subtitle={subtitle}
         rightContent={
           <AppButton
             title="From KOT"
@@ -222,10 +281,15 @@ const BillListScreen: React.FC = () => {
 
       <FlatList
         data={data}
-        keyExtractor={(item) => String(item.bill_id)}
+        keyExtractor={(item, index) => String(item.bill_id ?? `bill-${index}`)}
         renderItem={renderItem}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
         }
         ListEmptyComponent={
           !loading ? (
@@ -238,29 +302,27 @@ const BillListScreen: React.FC = () => {
               <Text style={[styles.emptyTitle, { color: colors.text }]}>
                 No bills found
               </Text>
-              <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-                Generate bill from KOT or room stay
+              <Text
+                style={[styles.emptySubtitle, { color: colors.textSecondary }]}
+              >
+                {loadError || "Try changing the filters or create a bill from KOT."}
               </Text>
             </View>
           ) : null
         }
-        contentContainerStyle={{
-          paddingBottom: 24,
-          flexGrow: data.length === 0 ? 1 : undefined,
-        }}
+        contentContainerStyle={
+          data.length === 0
+            ? { flexGrow: 1, justifyContent: "center", padding: 16 }
+            : { paddingHorizontal: 16, paddingBottom: 24 }
+        }
+        showsVerticalScrollIndicator={false}
       />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  filterRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 10,
-  },
+  container: { flex: 1 },
   card: {
     borderWidth: 1,
     borderRadius: 16,
@@ -271,27 +333,45 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 8,
+    marginBottom: 6,
   },
-  billNo: { fontSize: 16, fontWeight: "700" },
-  dateText: { marginTop: 3, fontSize: 12 },
+  billNo: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  dateText: {
+    fontSize: 12,
+    marginTop: 2,
+  },
   badge: {
     borderRadius: 999,
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 4,
   },
-  badgeText: { fontSize: 12, fontWeight: "700" },
-  metaText: { fontSize: 13, marginBottom: 3 },
-  netAmount: { marginTop: 8, fontSize: 17, fontWeight: "700" },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  metaText: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  netAmount: {
+    marginTop: 8,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  filterRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
   emptyCard: {
     borderWidth: 1,
-    borderStyle: "dashed",
     borderRadius: 16,
     padding: 20,
-    marginTop: 20,
     alignItems: "center",
-    justifyContent: "center",
-    flex: 1,
   },
   emptyTitle: { fontSize: 16, fontWeight: "700", marginBottom: 6 },
   emptySubtitle: { fontSize: 13, textAlign: "center" },

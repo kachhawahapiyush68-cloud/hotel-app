@@ -1,13 +1,10 @@
-// ============================================================
-// src/modules/bill/components/BillItemRow.tsx
-// ============================================================
-
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import {
   BillItem,
   getChargeTypeLabel,
   DISPLAY_CATEGORY_COLOR,
+  DISPLAY_CATEGORY_LABEL,
 } from "../types";
 import { formatNumber } from "../../../shared/utils/number";
 import { formatDateTime } from "../../../shared/utils/date";
@@ -15,44 +12,73 @@ import { useThemeStore } from "../../../store/themeStore";
 
 type Props = {
   item: BillItem;
-  index: number;
+  index?: number;
 };
 
 const BillItemRow: React.FC<Props> = ({ item }) => {
   const { theme } = useThemeStore();
   const colors = theme.colors;
 
-  const displayName = useMemo(() => {
-    const source = String(item.source_type || "").toUpperCase();
+  const source = String(item.source_type || "").toUpperCase();
+  const chargeType = String(item.charge_type || "").toUpperCase();
+  const category = String(item.display_category || "CHARGE").toUpperCase();
 
+  const displayName = useMemo(() => {
     if (source === "KOT") {
       return item.product_name || `KOT Item #${item.product_id}`;
     }
 
     if (source === "ROOM_POSTING") {
       if (item.charge_type) return getChargeTypeLabel(item.charge_type);
-      return "Room Posting";
+      return item.product_name || "Room Posting";
     }
 
-    if (source === "MANUAL" && item.description) {
-      return item.description;
+    if (source === "PAYMENT") {
+      if (item.charge_type) return getChargeTypeLabel(item.charge_type);
+      return "Payment";
     }
 
-    if (item.product_name) return item.product_name;
+    if (source === "REFUND") {
+      return "Refund";
+    }
+
+    if (source === "MANUAL") {
+      return (
+        item.description ||
+        item.product_name ||
+        (item.charge_type ? getChargeTypeLabel(item.charge_type) : "Manual Entry")
+      );
+    }
+
+    if (chargeType) {
+      return getChargeTypeLabel(chargeType);
+    }
+
+    if (item.product_name) {
+      return item.product_name;
+    }
+
     return `Item #${item.product_id}`;
-  }, [item]);
+  }, [source, chargeType, item]);
 
-  const category = String(item.display_category || "CHARGE").toUpperCase();
-  const catColor = DISPLAY_CATEGORY_COLOR[category] ?? "#6B7280";
+  const catColor =
+    DISPLAY_CATEGORY_COLOR[
+      (category as keyof typeof DISPLAY_CATEGORY_COLOR) || "CHARGE"
+    ] ?? "#6B7280";
 
   const catLabel =
-    category === "CHARGE"
-      ? "Charge"
-      : category === "DISCOUNT"
-      ? "Discount"
-      : category === "PAYMENT"
-      ? "Payment"
-      : category;
+    DISPLAY_CATEGORY_LABEL[
+      (category as keyof typeof DISPLAY_CATEGORY_LABEL) || "CHARGE"
+    ] ?? category;
+
+  const qty = Number(item.qty || 0);
+  const rate = Number(item.rate || 0);
+  const amount = Number(item.amount || 0);
+  const absAmount = Math.abs(amount);
+  const tax = Number(item.tax_amount || 0);
+
+  const negativeStyle =
+    category === "PAYMENT" || category === "DISCOUNT" || amount < 0;
 
   const amountColor =
     category === "PAYMENT"
@@ -61,13 +87,12 @@ const BillItemRow: React.FC<Props> = ({ item }) => {
       ? "#D98E04"
       : colors.primary;
 
-  const amountPrefix =
-    category === "PAYMENT" || category === "DISCOUNT" ? "- ₹ " : "₹ ";
+  const amountPrefix = negativeStyle ? "- ₹ " : "₹ ";
 
-  const qty = Number(item.qty || 0);
-  const rate = Number(item.rate || 0);
-  const amount = Number(item.amount || 0);
-  const tax = Number(item.tax_amount || 0);
+  const hasPostingDate =
+    typeof item.posting_date === "string" && item.posting_date.trim().length > 0;
+
+  const showQtyRate = source !== "PAYMENT" && source !== "REFUND";
 
   return (
     <View
@@ -82,9 +107,7 @@ const BillItemRow: React.FC<Props> = ({ item }) => {
     >
       <View style={styles.topRow}>
         <View style={styles.leftCol}>
-          <Text style={[styles.title, { color: colors.text }]}>
-            {displayName}
-          </Text>
+          <Text style={[styles.title, { color: colors.text }]}>{displayName}</Text>
 
           {!!item.charge_type && (
             <Text style={[styles.meta, { color: colors.textSecondary }]}>
@@ -92,21 +115,23 @@ const BillItemRow: React.FC<Props> = ({ item }) => {
             </Text>
           )}
 
-          {!!item.posting_date && (
+          {hasPostingDate && (
             <Text style={[styles.meta, { color: colors.textSecondary }]}>
-              Date: {formatDateTime(item.posting_date)}
+              Date: {formatDateTime(item.posting_date!)}
             </Text>
           )}
 
-          {item.product_code ? (
+          {!!item.product_code && (
             <Text style={[styles.meta, { color: colors.textSecondary }]}>
               Code: {item.product_code}
             </Text>
-          ) : null}
+          )}
 
-          <Text style={[styles.meta, { color: colors.textSecondary }]}>
-            Qty: {formatNumber(qty, 2)} × ₹ {formatNumber(rate, 2)}
-          </Text>
+          {showQtyRate && (
+            <Text style={[styles.meta, { color: colors.textSecondary }]}>
+              Qty: {formatNumber(qty, 2)} × ₹ {formatNumber(rate, 2)}
+            </Text>
+          )}
 
           {tax > 0 ? (
             <Text style={[styles.meta, { color: colors.textSecondary }]}>
@@ -117,14 +142,12 @@ const BillItemRow: React.FC<Props> = ({ item }) => {
 
         <View style={styles.rightCol}>
           <View style={[styles.badge, { backgroundColor: `${catColor}18` }]}>
-            <Text style={[styles.badgeText, { color: catColor }]}>
-              {catLabel}
-            </Text>
+            <Text style={[styles.badgeText, { color: catColor }]}>{catLabel}</Text>
           </View>
 
           <Text style={[styles.amount, { color: amountColor }]}>
             {amountPrefix}
-            {formatNumber(amount, 2)}
+            {formatNumber(absAmount, 2)}
           </Text>
         </View>
       </View>
